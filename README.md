@@ -50,8 +50,9 @@ Note - if using IPv6, use the format ```"[::]"``` replacing ```::``` with your f
 media_player:
   - platform: mythfrontend
     host: (hostname or IP address)
-    name: Friendly frontend name (default: MythTV Frontend)
-    port: Frontend API services port (default: 6547)
+    name: Friendly frontend name (optional, default: MythTV Frontend)
+    port: Frontend API services port (optional, default: 6547)
+    mac: MAC address for WOL (optional)
 ```
 
 ## NOTES
