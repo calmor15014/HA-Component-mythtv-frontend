@@ -176,7 +176,7 @@ class MythTVFrontendDevice(MediaPlayerDevice):
     @property
     def supported_features(self):
         # Implement volume control later
-		if self._mac:
+        if self._mac:
             return SUPPORT_MYTHTV_FRONTEND | SUPPORT_TURN_ON
         else:
             return SUPPORT_MYTHTV_FRONTEND
