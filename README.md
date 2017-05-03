@@ -27,12 +27,11 @@ If not using VirtualEnv/Hassbian, use ```git clone https://github.com/billmeek/M
 In the Home Assistant configuration directory (located at ```/home/homeassistant/.homeassistant``` for VirtualEnv/Hassbian installs), make sure ```/custom_components/media_player``` exists.  If it does not exist, perform the following:
 ```
 cd /home/homeassistant/.homeassistant  #Or your configuration directory
-mkdir custom_components
-cd custom_components
-mkdir media_player
-cd media_player
+mkdir -p custom_components/media_player
+cd custom_components/media_player
+wget https://raw.githubusercontent.com/calmor15014/HA-Component-mythtv-frontend/master/mythfrontend.py
 ```
-Copy the ```mythfrontend.py``` file from this repository to the new media_player folder.
+This makes the required custom media_player folder and copies the ```mythfrontend.py``` file from this repository to the new folder.
 
 ## Adding and Configuring a MythTV Frontend in Home Assistant
 
@@ -42,18 +41,11 @@ In your ```configuration.yaml``` file, add the following:
 media_player:
   - platform: mythfrontend
     host: (hostname or IP address)
-```
-Note - if using IPv6, use the format ```"[::]"``` replacing ```::``` with your full IPv6 address.  ```host``` also takes hostnames if they can be resolved by DNS.
-
-### Optional Configuration Items
-```
-media_player:
-  - platform: mythfrontend
-    host: (hostname or IP address)
     name: Friendly frontend name (optional, default: MythTV Frontend)
     port: Frontend API services port (optional, default: 6547)
     mac: MAC address for WOL (optional)
 ```
+Note - if using IPv6, use the format ```"[::]"``` replacing ```::``` with your full IPv6 address.  ```host``` also takes hostnames if they can be resolved by DNS.
 
 ## NOTES
 
