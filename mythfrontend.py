@@ -75,7 +75,7 @@ class MythTVFrontendDevice(MediaPlayerDevice):
 
     def __init__(self, host, port, name, mac):
         """Initialize the MythTV API."""
-        from MythTVServicesAPI import Utilities as api
+        from MythTVServicesAPI.mythtv_services_api import send as api
         from wakeonlan import wol
         # Save a reference to the api
         self._api = api
@@ -183,15 +183,6 @@ class MythTVFrontendDevice(MediaPlayerDevice):
             pass
         return title
 
-    # def turn_off(self):
-    # """Turn off media player."""
-    # if self._config['method'] == 'websocket':
-    # self.send_key('KEY_POWER')
-    # else:
-    # self.send_key('KEY_POWEROFF')
-    # # Force closing of remote session to provide instant UI feedback
-    # self.get_remote().close()
-
     # def volume_up(self):
     # """Volume up the media player."""
     # self.send_key('KEY_VOLUP')
@@ -234,5 +225,4 @@ class MythTVFrontendDevice(MediaPlayerDevice):
         """Turn the media player on."""
         if self._mac:
             self._wol.send_magic_packet(self._mac)
-            # else:
-            #    self.send_key('KEY_POWERON')
+            
