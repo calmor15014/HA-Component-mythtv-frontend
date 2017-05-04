@@ -87,6 +87,7 @@ class MythTVFrontendDevice(MediaPlayerDevice):
         self._wol = wol
         # self._volume_control = volume_control
         self._state = STATE_UNKNOWN
+        self._playing = False
 
     def update(self):
         """Retrieve the latest data."""
@@ -173,7 +174,14 @@ class MythTVFrontendDevice(MediaPlayerDevice):
     @property
     def media_title(self):
         """Return the title of current playing media."""
-        return self._frontend.get('title')
+        title = self._frontend.get('title')
+        try:
+            if self._frontend.get('state').startswith('WatchingLiveTV'):
+                title += " (Live TV)"
+        except AttributeError:
+            # ignore error if state is None
+            pass
+        return title
 
     # def turn_off(self):
     # """Turn off media player."""
@@ -206,10 +214,12 @@ class MythTVFrontendDevice(MediaPlayerDevice):
 
     def media_play(self):
         """Send play command."""
+        self._playing = True
         self.api_send_action('PLAY')
 
     def media_pause(self):
         """Send pause command."""
+        self._playing = False
         self.api_send_action('PAUSE')
 
     def media_next_track(self):
