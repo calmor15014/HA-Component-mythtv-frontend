@@ -75,7 +75,7 @@ class MythTVFrontendDevice(MediaPlayerDevice):
 
     def __init__(self, host, port, name, mac):
         """Initialize the MythTV API."""
-        from MythTVServicesAPI.mythtv_services_api import send as api
+        from mythtv_services_api import send as api
         from wakeonlan import wol
         # Save a reference to the api
         self._api = api
