@@ -19,9 +19,11 @@ from homeassistant.const import (
     CONF_MAC, STATE_PLAYING, STATE_IDLE, STATE_PAUSED)
 import homeassistant.helpers.config_validation as cv
 
-# TODO add MythTVServicesAPI if/when added to pip
 # WOL requirement for turn_on
-REQUIREMENTS = ['wakeonlan==0.2.2']
+REQUIREMENTS = ['wakeonlan==0.2.2',
+                'https://github.com/billmeek/MythTVServicesAPI/archive/'
+                '691a1b0fa7028b4222c04d280d1823b565759ab0.zip'
+                '#mythtv_services_api==0.0.3']
 
 _LOGGER = logging.getLogger(__name__)
 
