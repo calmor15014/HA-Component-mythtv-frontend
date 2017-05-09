@@ -5,6 +5,8 @@ Support for interface with a MythTV Frontend.
 #https://github.com/calmor15014/HA-Component-mythtv-frontend/
 """
 import logging
+import subprocess
+import sys
 
 import voluptuous as vol
 
@@ -102,7 +104,12 @@ class MythTVFrontendDevice(MediaPlayerDevice):
                                     endpoint='Frontend/GetStatus')
             # _LOGGER.debug(result)  # testing
             if list(result.keys())[0] in ['Abort', 'Warning']:
-                self._state = STATE_OFF
+                # If ping succeeds but API failed, Mythfrontend state is unknown
+                if self.ping_host():
+                    self._state = STATE_UNKNOWN
+                # If ping fails also, Mythfrontend device is off/unreachable
+                else:
+                    self._state = STATE_OFF
                 return False
             self._frontend = result['FrontendStatus']['State']
             if self._frontend['state'] == 'idle':
@@ -123,6 +130,24 @@ class MythTVFrontendDevice(MediaPlayerDevice):
             return False
 
         return True
+
+    # Reference: device_tracker/ping.py
+    def ping_host(self):
+        """Try to ping the host if API status has some errors"""
+        if sys.platform == "win32":
+            ping_cmd = ['ping', '-n 1', '-w 1000', self._host]
+        else:
+            ping_cmd = ['ping', '-nq', '-c1', '-W1', self._host]
+        pinger = subprocess.Popen(ping_cmd,
+                                  stdout=subprocess.PIPE,
+                                  stderr=subprocess.DEVNULL)
+        try:
+            pinger.communicate()
+            return pinger.returncode == 0
+        except subprocess.CalledProcessError:
+            _LOGGER.warning("Mythfrontned ping error for '%s' at '%s'",
+                            self._name, self._host)
+            return False
 
     def api_send_action(self, action):
         """Send a command to the Frontend."""
@@ -227,4 +252,3 @@ class MythTVFrontendDevice(MediaPlayerDevice):
         """Turn the media player on."""
         if self._mac:
             self._wol.send_magic_packet(self._mac)
-            
