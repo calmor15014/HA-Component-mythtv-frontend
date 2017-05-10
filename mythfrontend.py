@@ -15,17 +15,17 @@ from homeassistant.components.media_player import (
     SUPPORT_NEXT_TRACK, SUPPORT_PAUSE, SUPPORT_PREVIOUS_TRACK,
     SUPPORT_TURN_OFF, SUPPORT_VOLUME_MUTE, SUPPORT_VOLUME_STEP,
     SUPPORT_PLAY, MediaPlayerDevice, PLATFORM_SCHEMA, SUPPORT_TURN_ON,
-    SUPPORT_VOLUME_SET, SUPPORT_SELECT_SOURCE, SUPPORT_STOP)
+    SUPPORT_VOLUME_SET, SUPPORT_STOP)
 from homeassistant.const import (
     CONF_HOST, CONF_NAME, STATE_OFF, STATE_ON, STATE_UNKNOWN, CONF_PORT,
     CONF_MAC, STATE_PLAYING, STATE_IDLE, STATE_PAUSED)
 import homeassistant.helpers.config_validation as cv
 
+# Prerequisite (to be converted to standard PyPI library when available)
+# https://github.com/billmeek/MythTVServicesAPI
+
 # WOL requirement for turn_on
-REQUIREMENTS = ['wakeonlan==0.2.2',
-                'https://github.com/billmeek/MythTVServicesAPI/archive/'
-                '691a1b0fa7028b4222c04d280d1823b565759ab0.zip'
-                '#mythtv_services_api==0.0.3']
+REQUIREMENTS = ['wakeonlan==0.2.2']
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -37,7 +37,7 @@ DEFAULT_PORT = 6547
 
 SUPPORT_MYTHTV_FRONTEND = SUPPORT_PAUSE | SUPPORT_PREVIOUS_TRACK | \
                           SUPPORT_NEXT_TRACK | SUPPORT_PLAY | \
-                          SUPPORT_SELECT_SOURCE | SUPPORT_STOP
+                          SUPPORT_STOP
 #   Removed SUPPORT_TURN_OFF since there is no frontend action for that
 #   Perhaps implement that with a system event or something similar?
 
@@ -57,17 +57,12 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
 # pylint: disable=unused-argument
 def setup_platform(hass, config, add_devices, discovery_info=None):
     """Setup the MythTV Frontend platform."""
-    if config.get(CONF_HOST) is not None:
-        host = config.get(CONF_HOST)
-        port = config.get(CONF_PORT)
-        name = config.get(CONF_NAME)
-        mac = config.get(CONF_MAC)
-        _LOGGER.info('Connecting to MythTV Frontend')
+    host = config.get(CONF_HOST)
+    port = config.get(CONF_PORT)
+    name = config.get(CONF_NAME)
+    mac = config.get(CONF_MAC)
+    _LOGGER.info('Connecting to MythTV Frontend')
     # volume_control = config.get(CONF_VOLUME_CONTROL)
-    else:
-        _LOGGER.warning(
-            'Internal error on MythTV Frontend component.')
-        return
 
     add_devices([MythTVFrontendDevice(host, port, name, mac)])
     _LOGGER.info("MythTV Frontend device %s:%d added as '%s'", host, port,
@@ -104,10 +99,10 @@ class MythTVFrontendDevice(MediaPlayerDevice):
                                     endpoint='Frontend/GetStatus')
             # _LOGGER.debug(result)  # testing
             if list(result.keys())[0] in ['Abort', 'Warning']:
-                # If ping succeeds but API failed, Mythfrontend state is unknown
-                if self.ping_host():
+                # If ping succeeds but API fails, MythFrontend state is unknown
+                if self._ping_host():
                     self._state = STATE_UNKNOWN
-                # If ping fails also, Mythfrontend device is off/unreachable
+                # If ping fails also, MythFrontend device is off/unreachable
                 else:
                     self._state = STATE_OFF
                 return False
@@ -132,8 +127,8 @@ class MythTVFrontendDevice(MediaPlayerDevice):
         return True
 
     # Reference: device_tracker/ping.py
-    def ping_host(self):
-        """Try to ping the host if API status has some errors"""
+    def _ping_host(self):
+        """Ping the host to see if API status has some errors."""
         if sys.platform == "win32":
             ping_cmd = ['ping', '-n 1', '-w 1000', self._host]
         else:
@@ -209,6 +204,11 @@ class MythTVFrontendDevice(MediaPlayerDevice):
             # ignore error if state is None
             pass
         return title
+
+    # @property
+    # def media_image_url(self):
+    #     """Return the media image URL."""
+    #     return self._frontend.get()
 
     # def volume_up(self):
     # """Volume up the media player."""
