@@ -11,6 +11,21 @@ This component is a media_player entity, and therefore will try to implement as 
 ### Prerequisites
 [Home Assistant](https://home-assistant.io) installed and operational.  Installation using a [VirtualEnv](https://home-assistant.io/docs/installation/virtualenv/) or [Hassbian](https://home-assistant.io/docs/hassbian/installation/) on Raspberry Pi is recommended and installation instructions are based on this method.
 
+[MythTVServicesAPI Utilities](https://github.com/billmeek/MythTVServicesAPI) 
+
+### Installing MythTVServicesAPI
+
+Add MythTVServicesAPI to your Python3.x/site-packages folder. If using VirtualEnv or Hassbian, switch to your homeassistant user and enter the VirtualEnv by performing the following commands:
+```
+sudo su -s /bin/bash homeassistant
+source /srv/homeassistant/bin/activate
+```
+Next, install the API:
+```
+pip install https://raw.githubusercontent.com/billmeek/MythTVServicesAPI/master/dist/mythtv_services_api-0.0.5-py3-none-any.whl
+```
+
+
 ### Installing mythfrontend.py custom component
 In the Home Assistant configuration directory (located at ```/home/homeassistant/.homeassistant``` for VirtualEnv/Hassbian installs), make sure ```/custom_components/media_player``` exists.  If it does not exist, perform the following:
 ```
