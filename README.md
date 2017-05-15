@@ -22,7 +22,7 @@ source /srv/homeassistant/bin/activate
 ```
 Next, install the API:
 ```
-pip install https://raw.githubusercontent.com/billmeek/MythTVServicesAPI/master/dist/mythtv_services_api-0.0.5-py3-none-any.whl
+pip install https://raw.githubusercontent.com/billmeek/MythTVServicesAPI/master/dist/mythtv_services_api-0.0.6-py3-none-any.whl
 ```
 
 
@@ -35,7 +35,6 @@ cd custom_components/media_player
 wget https://raw.githubusercontent.com/calmor15014/HA-Component-mythtv-frontend/master/mythfrontend.py
 ```
 This makes the required custom media_player folder and copies the ```mythfrontend.py``` file from this repository to the new folder.  
-When you first run Home Assistant after this, it will install the MythTVServicesAPI requirement.
 
 ## Adding and Configuring a MythTV Frontend in Home Assistant
 
