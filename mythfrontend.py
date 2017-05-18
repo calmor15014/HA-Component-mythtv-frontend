@@ -27,30 +27,29 @@ import homeassistant.helpers.config_validation as cv
 # WOL requirement for turn_on
 REQUIREMENTS = ['wakeonlan==0.2.2']
 
+# Set up logging object
 _LOGGER = logging.getLogger(__name__)
 
-# Implement Volume Control later
-# CONF_VOLUME_CONTROL = 'volume_control'
-
+# Set default configuration
 DEFAULT_NAME = 'MythTV Frontend'
 DEFAULT_PORT = 6547
 
+# Set core supported media_player functions
+# #TODO - Implement SUPPORT_TURN_OFF
 SUPPORT_MYTHTV_FRONTEND = SUPPORT_PAUSE | SUPPORT_PREVIOUS_TRACK | \
                           SUPPORT_NEXT_TRACK | SUPPORT_PLAY | \
                           SUPPORT_STOP
-#   Removed SUPPORT_TURN_OFF since there is no frontend action for that
-#   Perhaps implement that with a system event or something similar?
 
-# TODO: Implement Volume Control later
-# SUPPORT_VOLUME_CONTROL = SUPPORT_VOLUME_STEP | SUPPORT_VOLUME_MUTE | SUPPORT_VOLUME_SET
+# Set supported media_player functions when volume_control is enabled
+SUPPORT_VOLUME_CONTROL = SUPPORT_VOLUME_STEP | SUPPORT_VOLUME_MUTE | \
+                         SUPPORT_VOLUME_SET
 
+# Set up YAML schema
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Required(CONF_HOST): cv.string,
     vol.Optional(CONF_NAME, default=DEFAULT_NAME): cv.string,
     vol.Optional(CONF_PORT, default=DEFAULT_PORT): cv.port,
-    vol.Optional(CONF_MAC): cv.string,
-    # Implement Volume Control later
-    # vol.Optional(CONF_VOLUME_CONTROL, default=DEFAULT_VOLUME_CONTROL): cv.bool,
+    vol.Optional(CONF_MAC): cv.string
 })
 
 
@@ -62,7 +61,6 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
     name = config.get(CONF_NAME)
     mac = config.get(CONF_MAC)
     _LOGGER.info('Connecting to MythTV Frontend')
-    # volume_control = config.get(CONF_VOLUME_CONTROL)
 
     add_devices([MythTVFrontendDevice(host, port, name, mac)])
     _LOGGER.info("MythTV Frontend device %s:%d added as '%s'", host, port,
@@ -84,9 +82,8 @@ class MythTVFrontendDevice(MediaPlayerDevice):
         self._frontend = {}
         self._mac = mac
         self._wol = wol
-        # self._volume_control = volume_control
+        self._volume = {'control': False, 'level': 0, 'muted': False}
         self._state = STATE_UNKNOWN
-        self._playing = False
 
     def update(self):
         """Retrieve the latest data."""
@@ -96,9 +93,13 @@ class MythTVFrontendDevice(MediaPlayerDevice):
         """Use the API to get the latest status."""
         try:
             result = self._api.send(host=self._host, port=self._port,
-                                    endpoint='Frontend/GetStatus')
+                                    endpoint='Frontend/GetStatus', 
+                                    opts={'timeout': 1})
             # _LOGGER.debug(result)  # testing
             if list(result.keys())[0] in ['Abort', 'Warning']:
+                # Remove volume controls while frontend is unavailable
+                self._volume['control'] = False 
+            
                 # If ping succeeds but API fails, MythFrontend state is unknown
                 if self._ping_host():
                     self._state = STATE_UNKNOWN
@@ -106,7 +107,11 @@ class MythTVFrontendDevice(MediaPlayerDevice):
                 else:
                     self._state = STATE_OFF
                 return False
+
+            # Make frontend status values more user-friendly
             self._frontend = result['FrontendStatus']['State']
+
+            # Determine state of frontend
             if self._frontend['state'] == 'idle':
                 self._state = STATE_IDLE
             elif self._frontend['state'].startswith('Watching'):
@@ -116,6 +121,14 @@ class MythTVFrontendDevice(MediaPlayerDevice):
                     self._state = STATE_PLAYING
             else:
                 self._state = STATE_ON
+            
+            # Set volume control flag and level if the volume tag is present
+            if 'volume' in self._frontend:
+                self._volume['control'] = True
+                self._volume['level'] = int(self._frontend['volume'])
+            # Set mute status if mute tag exists
+            if 'mute' in self._frontend:
+                self._volume['muted'] = (self._frontend['mute'] != '0')
         except:
             self._state = STATE_OFF
             _LOGGER.warning(
@@ -144,13 +157,14 @@ class MythTVFrontendDevice(MediaPlayerDevice):
                             self._name, self._host)
             return False
 
-    def api_send_action(self, action):
+    def api_send_action(self, action, value=None):
         """Send a command to the Frontend."""
         try:
             result = self._api.send(host=self._host, port=self._port,
                                     endpoint='Frontend/SendAction',
-                                    postdata={'Action': action},
-                                    opts={'debug': False, 'wrmi': True})
+                                    postdata={'Action': action, 'Value': value},
+                                    opts={'debug': False, 'wrmi': True, 
+                                          'timeout': 1})
             # _LOGGER.debug(result)  # testing
             self.api_update()
         except OSError:
@@ -169,29 +183,26 @@ class MythTVFrontendDevice(MediaPlayerDevice):
         """Return the state of the device."""
         return self._state
 
-        # @property
-        # def volume_level(self):
-        # """Return volume level from 0 to 1."""
-        # if self._volume_control:
-        # #TODO - implement volume control
-        # return 0
-        # return 0
+    @property
+    def volume_level(self):
+        """Return volume level from 0 to 1."""
+        return self._volume['level'] / 100
 
-        # @property
-        # def is_volume_muted(self):
-        # """Boolean if volume is currently muted."""
-        # if self.volume_control:
-        # return self._muted
-        # return False
+    @property
+    def is_volume_muted(self):
+        """Boolean if volume is currently muted."""
+        return self._volume['muted']
 
     @property
     def supported_features(self):
         """Get supported features."""
-        # Implement volume control later
+        features = SUPPORT_MYTHTV_FRONTEND
         if self._mac:
-            return SUPPORT_MYTHTV_FRONTEND | SUPPORT_TURN_ON
-        else:
-            return SUPPORT_MYTHTV_FRONTEND
+            # Add WOL feature
+            features |= SUPPORT_TURN_ON
+        if (self._volume['control']):
+            features |= SUPPORT_VOLUME_CONTROL
+        return features
 
     @property
     def media_title(self):
@@ -208,23 +219,26 @@ class MythTVFrontendDevice(MediaPlayerDevice):
     # @property
     # def media_image_url(self):
     #     """Return the media image URL."""
-    #     return self._frontend.get()
+    #     #TODO - implement media image from backend?
 
-    # def volume_up(self):
-    # """Volume up the media player."""
-    # self.send_key('KEY_VOLUP')
+    def volume_up(self):
+        """Volume up the media player."""
+        self.api_send_action(action='VOLUMEUP')
 
-    # def volume_down(self):
-    # """Volume down media player."""
-    # self.send_key('KEY_VOLDOWN')
+    def volume_down(self):
+        """Volume down media player."""
+        self.api_send_action(action='VOLUMEDOWN')
+        
+    def set_volume_level(self, volume):
+        """Set specific volume level."""
+        self.api_send_action(action='SETVOLUME', value=int(volume*100))
 
-    # def mute_volume(self, mute):
-    # """Send mute command."""
-    # self.send_key('KEY_MUTE')
+    def mute_volume(self, mute):
+        """Send mute command."""
+        self.api_send_action(action='MUTE')
 
     def media_play_pause(self):
         """Simulate play/pause media player."""
-        # _LOGGER.debug("_state is %s" % self._state)
         if self._state == STATE_PLAYING:
             self.media_pause()
         elif self._state == STATE_PAUSED:
@@ -232,21 +246,19 @@ class MythTVFrontendDevice(MediaPlayerDevice):
 
     def media_play(self):
         """Send play command."""
-        self._playing = True
-        self.api_send_action('PLAY')
+        self.api_send_action(action='PLAY')
 
     def media_pause(self):
         """Send pause command."""
-        self._playing = False
-        self.api_send_action('PAUSE')
+        self.api_send_action(action='PAUSE')
 
     def media_next_track(self):
         """Send next track command."""
-        self.api_send_action('NEXT')
+        self.api_send_action(action='JUMPFFWD')
 
     def media_previous_track(self):
         """Send previous track command."""
-        self.api_send_action('PREVIOUS')
+        self.api_send_action(action='JUMPRWND')
 
     def turn_on(self):
         """Turn the media player on."""
