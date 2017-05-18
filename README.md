@@ -50,12 +50,12 @@ media_player:
 ```
 Note - if using IPv6, use the format ```"[::]"``` replacing ```::``` with your full IPv6 address.  ```host``` also takes hostnames if they can be resolved by DNS.
 
-## NOTES
+## Notes
 
-* MythTV Services API in versions 0.28 and 0.29-pre appear to have broken implementations of SendAction, so these versions may not respond correctly to frontend actions.  0.27 should work but has not yet been tested.
+* MythTV Services API in version 0.29-pre appears to have a broken implementation of SendAction, so this version may not respond correctly to frontend actions.  0.28-fixes has been tested to work normally.  If the frontend status is indicated, but controls do not work, please post on the [Home Assistant development thread](https://community.home-assistant.io/t/adding-mythtv-frontend-component/16991) with your MythTV version.
 
 ## Acknowledgements
 
 * [MythTVServicesAPI](http://github.com/billmeek/MythTVServicesAPI) - Implementing an easy way to interface with MythTV
 * [MythTV Wiki - Services API](https://www.mythtv.org/wiki/Services_API) - Examples and descriptions of MythTV Services API
-* Based off existing samsungtv and anthemav components
+* Based off of existing samsungtv and anthemav components
