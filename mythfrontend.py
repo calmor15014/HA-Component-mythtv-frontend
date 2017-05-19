@@ -20,6 +20,7 @@ from homeassistant.const import (
     CONF_HOST, CONF_NAME, STATE_OFF, STATE_ON, STATE_UNKNOWN, CONF_PORT,
     CONF_MAC, STATE_PLAYING, STATE_IDLE, STATE_PAUSED)
 import homeassistant.helpers.config_validation as cv
+import homeassistant.util.dt as dt_util
 
 # Prerequisite (to be converted to standard PyPI library when available)
 # https://github.com/billmeek/MythTVServicesAPI
@@ -215,6 +216,26 @@ class MythTVFrontendDevice(MediaPlayerDevice):
             # ignore error if state is None
             pass
         return title
+
+    @property
+    def media_duration(self):
+        """Duration of current playing media in seconds."""
+        total_seconds = self._frontend.get('totalseconds')
+        if total_seconds is not None:
+            return total_seconds
+
+    @property
+    def media_position(self):
+        """Position of current playing media in seconds."""
+        seconds_played = self._frontend.get('secondsplayed')
+        if seconds_played is not None:
+            return seconds_played
+
+    @property
+    def media_position_updated_at(self):
+        """Last valid time of media position."""
+        if self._state == STATE_PLAYING or self._state == STATE_PAUSED:
+            return dt_util.utcnow()
 
     # @property
     # def media_image_url(self):
