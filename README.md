@@ -22,7 +22,7 @@ source /srv/homeassistant/bin/activate
 ```
 Next, install the API:
 ```
-pip install https://raw.githubusercontent.com/billmeek/MythTVServicesAPI/master/dist/mythtv_services_api-0.0.6-py3-none-any.whl
+pip install https://raw.githubusercontent.com/billmeek/MythTVServicesAPI/master/dist/mythtv_services_api-0.0.8-py3-none-any.whl
 ```
 
 
@@ -46,6 +46,8 @@ media_player:
     host: (hostname or IP address)
     name: Friendly frontend name (optional, default: MythTV Frontend)
     port: Frontend API services port (optional, default: 6547)
+    port_backend: Backend API services port (optional, default: 6544)
+    show_artwork: Choose whether or not to show artwork (optional, default: True)
     mac: MAC address for WOL (optional)
 ```
 Note - if using IPv6, use the format ```"[::]"``` replacing ```::``` with your full IPv6 address.  ```host``` also takes hostnames if they can be resolved by DNS.
