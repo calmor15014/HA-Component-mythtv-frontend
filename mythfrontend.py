@@ -33,7 +33,9 @@ _LOGGER = logging.getLogger(__name__)
 
 # Set default configuration
 DEFAULT_NAME = 'MythTV Frontend'
-DEFAULT_PORT = 6547
+DEFAULT_PORT_FRONTEND = 6547
+DEFAULT_PORT_BACKEND = 6544
+DEFAULT_ARTWORK_CHOICE = True
 
 # Set core supported media_player functions
 # #TODO - Implement SUPPORT_TURN_OFF
@@ -49,8 +51,9 @@ SUPPORT_VOLUME_CONTROL = SUPPORT_VOLUME_STEP | SUPPORT_VOLUME_MUTE | \
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Required(CONF_HOST): cv.string,
     vol.Optional(CONF_NAME, default=DEFAULT_NAME): cv.string,
-    vol.Optional(CONF_PORT, default=DEFAULT_PORT): cv.port,
-    vol.Optional(CONF_MAC): cv.string
+    vol.Optional(CONF_PORT, default=DEFAULT_PORT_FRONTEND): cv.port,
+    vol.Optional(CONF_MAC): cv.string,
+    vol.Optional('show_artwork', default=DEFAULT_ARTWORK_CHOICE): cv.boolean,
 })
 
 
@@ -61,9 +64,10 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
     port = config.get(CONF_PORT)
     name = config.get(CONF_NAME)
     mac = config.get(CONF_MAC)
+    show_artwork = config.get('show_artwork')
     _LOGGER.info('Connecting to MythTV Frontend')
 
-    add_devices([MythTVFrontendDevice(host, port, name, mac)])
+    add_devices([MythTVFrontendDevice(host, port, name, mac, show_artwork)])
     _LOGGER.info("MythTV Frontend device %s:%d added as '%s'", host, port,
                  name)
 
@@ -71,7 +75,7 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
 class MythTVFrontendDevice(MediaPlayerDevice):
     """Representation of a MythTV Frontend."""
 
-    def __init__(self, host, port, name, mac):
+    def __init__(self, host, port, name, mac, show_artwork):
         """Initialize the MythTV API."""
         from mythtv_services_api import send as api
         from wakeonlan import wol
@@ -80,11 +84,14 @@ class MythTVFrontendDevice(MediaPlayerDevice):
         self._host = host
         self._port = port
         self._name = name
+        self._show_artwork = show_artwork
         self._frontend = {}
         self._mac = mac
         self._wol = wol
         self._volume = {'control': False, 'level': 0, 'muted': False}
         self._state = STATE_UNKNOWN
+        self._last_playing_title = None
+        self._media_image_url = None
 
     def update(self):
         """Retrieve the latest data."""
@@ -130,15 +137,54 @@ class MythTVFrontendDevice(MediaPlayerDevice):
             # Set mute status if mute tag exists
             if 'mute' in self._frontend:
                 self._volume['muted'] = (self._frontend['mute'] != '0')
-        except:
+
+            # only get artwork from backend if the playing media has changed
+            if self._state not in [STATE_PLAYING, STATE_PAUSED]:
+                self._media_image_url = None
+            elif self._show_artwork and self._has_playing_media_changed():
+                self._media_image_url = self._get_artwork()
+
+        except Exception as error:
             self._state = STATE_OFF
-            _LOGGER.warning(
-                "Communication error with MythTV Frontend Device '%s' at %s:%d",
-                self._name, self._host, self._port)
+            _LOGGER.warning("Error with '%s' at %s:%d - %s",
+                            self._name, self._host, self._port, error)
             _LOGGER.warning(self._frontend)
             return False
 
         return True
+
+    def _get_artwork(self):
+        _LOGGER.debug('getting new media_image_url')
+        # Get artwork from backend, searching for current title
+        result = self._api.send(host=self._host,
+                                port=DEFAULT_PORT_BACKEND,
+                                endpoint='Dvr/GetRecordedList',
+                                opts={'timeout': 2})
+        if list(result.keys())[0] in ['Abort', 'Warning']:
+            _LOGGER.debug("Backend API call failed: %s", result)
+            return None
+
+        programs = result.get('ProgramList').get('Programs')
+        matches = [program for program in programs if
+                   program.get('Title') == self._frontend.get('title')]
+        _LOGGER.debug("%d recorded program(s) match(es) title", len(matches))
+
+        # Check for specific show if multiple programs have same title
+        if len(matches) > 1:
+            match = next(program for program in matches if
+                         program.get('SubTitle') == self._frontend.get(
+                             'subtitle'))
+        else:
+            match = matches[0]
+        artworks = match.get('Artwork').get('ArtworkInfos')
+
+        # Handle programs that have no artwork
+        if not artworks:
+            return None
+
+        part_url = artworks[0].get('URL')
+        return "http://{}:{}{}".format(self._host, DEFAULT_PORT_BACKEND,
+                                       part_url)
 
     # Reference: device_tracker/ping.py
     def _ping_host(self):
@@ -154,7 +200,7 @@ class MythTVFrontendDevice(MediaPlayerDevice):
             pinger.communicate()
             return pinger.returncode == 0
         except subprocess.CalledProcessError:
-            _LOGGER.warning("Mythfrontned ping error for '%s' at '%s'",
+            _LOGGER.warning("MythFrontend ping error for '%s' at '%s'",
                             self._name, self._host)
             return False
 
@@ -210,6 +256,9 @@ class MythTVFrontendDevice(MediaPlayerDevice):
     def media_title(self):
         """Return the title of current playing media."""
         title = self._frontend.get('title')
+        subtitle = self._frontend.get('subtitle', '')
+        if subtitle != '':
+            title += " - " + subtitle
         try:
             if self._frontend.get('state').startswith('WatchingLiveTV'):
                 title += " (Live TV)"
@@ -240,10 +289,17 @@ class MythTVFrontendDevice(MediaPlayerDevice):
         if self._state == STATE_PLAYING or self._state == STATE_PAUSED:
             return dt_util.utcnow()
 
-    # @property
-    # def media_image_url(self):
-    #     """Return the media image URL."""
-    #     #TODO - implement media image from backend?
+    @property
+    def media_image_url(self):
+        """Return the media image URL."""
+        return self._media_image_url
+
+    def _has_playing_media_changed(self):
+        """Determine if media has changed since last update."""
+        title = self.media_title
+        has_changed = title != self._last_playing_title
+        self._last_playing_title = title
+        return has_changed
 
     def volume_up(self):
         """Volume up the media player."""
