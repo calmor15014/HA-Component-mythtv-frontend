@@ -33,7 +33,9 @@ _LOGGER = logging.getLogger(__name__)
 
 # Set default configuration
 DEFAULT_NAME = 'MythTV Frontend'
-DEFAULT_PORT = 6547
+DEFAULT_PORT_FRONTEND = 6547
+DEFAULT_PORT_BACKEND = 6544
+DEFAULT_ARTWORK_CHOICE = True
 
 # Set core supported media_player functions
 # #TODO - Implement SUPPORT_TURN_OFF
@@ -49,8 +51,9 @@ SUPPORT_VOLUME_CONTROL = SUPPORT_VOLUME_STEP | SUPPORT_VOLUME_MUTE | \
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Required(CONF_HOST): cv.string,
     vol.Optional(CONF_NAME, default=DEFAULT_NAME): cv.string,
-    vol.Optional(CONF_PORT, default=DEFAULT_PORT): cv.port,
-    vol.Optional(CONF_MAC): cv.string
+    vol.Optional(CONF_PORT, default=DEFAULT_PORT_FRONTEND): cv.port,
+    vol.Optional(CONF_MAC): cv.string,
+    vol.Optional('show_artwork', default=DEFAULT_ARTWORK_CHOICE): cv.boolean,
 })
 
 
@@ -61,9 +64,10 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
     port = config.get(CONF_PORT)
     name = config.get(CONF_NAME)
     mac = config.get(CONF_MAC)
+    show_artwork = config.get('show_artwork')
     _LOGGER.info('Connecting to MythTV Frontend')
 
-    add_devices([MythTVFrontendDevice(host, port, name, mac)])
+    add_devices([MythTVFrontendDevice(host, port, name, mac, show_artwork)])
     _LOGGER.info("MythTV Frontend device %s:%d added as '%s'", host, port,
                  name)
 
@@ -71,7 +75,7 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
 class MythTVFrontendDevice(MediaPlayerDevice):
     """Representation of a MythTV Frontend."""
 
-    def __init__(self, host, port, name, mac):
+    def __init__(self, host, port, name, mac, show_artwork):
         """Initialize the MythTV API."""
         from mythtv_services_api import send as api
         from wakeonlan import wol
@@ -80,11 +84,14 @@ class MythTVFrontendDevice(MediaPlayerDevice):
         self._host = host
         self._port = port
         self._name = name
+        self._show_artwork = show_artwork
         self._frontend = {}
         self._mac = mac
         self._wol = wol
         self._volume = {'control': False, 'level': 0, 'muted': False}
         self._state = STATE_UNKNOWN
+        self._last_playing_title = None
+        self._media_image_url = None
 
     def update(self):
         """Retrieve the latest data."""
@@ -240,10 +247,23 @@ class MythTVFrontendDevice(MediaPlayerDevice):
         if self._state == STATE_PLAYING or self._state == STATE_PAUSED:
             return dt_util.utcnow()
 
-    # @property
-    # def media_image_url(self):
-    #     """Return the media image URL."""
-    #     #TODO - implement media image from backend?
+    @property
+    def media_image_url(self):
+        """Return the media image URL."""
+        # only get the artwork if the playing media has changed
+        if self._show_artwork and self._has_playing_media_changed():
+            _LOGGER.debug('getting new media_image_url')
+            self._media_image_url = "http://192.168.1.222:6544/Content/GetImageFile?StorageGroup=Coverart&FileName=/tmdb3.py_62211_coverart.jpg"
+            # return "http://192.168.1.222:6544/Content/GetImageFile?StorageGroup=Banners&FileName=/Community%20Season%201_banner.jpg"
+            # return "http://192.168.1.222:6544/Content/GetImageFile?StorageGroup=Coverart&FileName=/Community%20Season%201_coverart.jpg"
+        return self._media_image_url
+
+    def _has_playing_media_changed(self):
+        """Determine if media has changed since last update."""
+        title = self._frontend.get('title')
+        has_changed = title != self._last_playing_title
+        self._last_playing_title = title
+        return has_changed
 
     def volume_up(self):
         """Volume up the media player."""
