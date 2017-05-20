@@ -137,15 +137,54 @@ class MythTVFrontendDevice(MediaPlayerDevice):
             # Set mute status if mute tag exists
             if 'mute' in self._frontend:
                 self._volume['muted'] = (self._frontend['mute'] != '0')
-        except:
+
+            # only get artwork from backend if the playing media has changed
+            if self._state not in [STATE_PLAYING, STATE_PAUSED]:
+                self._media_image_url = None
+            elif self._show_artwork and self._has_playing_media_changed():
+                self._media_image_url = self._get_artwork()
+
+        except Exception as error:
             self._state = STATE_OFF
-            _LOGGER.warning(
-                "Communication error with MythTV Frontend Device '%s' at %s:%d",
-                self._name, self._host, self._port)
+            _LOGGER.warning("Error with '%s' at %s:%d - %s",
+                            self._name, self._host, self._port, error)
             _LOGGER.warning(self._frontend)
             return False
 
         return True
+
+    def _get_artwork(self):
+        _LOGGER.debug('getting new media_image_url')
+        # Get artwork from backend, searching for current title
+        result = self._api.send(host=self._host,
+                                port=DEFAULT_PORT_BACKEND,
+                                endpoint='Dvr/GetRecordedList',
+                                opts={'timeout': 2})
+        if list(result.keys())[0] in ['Abort', 'Warning']:
+            _LOGGER.debug("Backend API call failed: %s", result)
+            return None
+
+        programs = result.get('ProgramList').get('Programs')
+        matches = [program for program in programs if
+                   program.get('Title') == self._frontend.get('title')]
+        _LOGGER.debug("%d recorded program(s) match(es) title", len(matches))
+
+        # Check for specific show if multiple programs have same title
+        if len(matches) > 1:
+            match = next(program for program in matches if
+                         program.get('SubTitle') == self._frontend.get(
+                             'subtitle'))
+        else:
+            match = matches[0]
+        artworks = match.get('Artwork').get('ArtworkInfos')
+
+        # Handle programs that have no artwork
+        if not artworks:
+            return None
+
+        part_url = artworks[0].get('URL')
+        return "http://{}:{}{}".format(self._host, DEFAULT_PORT_BACKEND,
+                                       part_url)
 
     # Reference: device_tracker/ping.py
     def _ping_host(self):
@@ -161,7 +200,7 @@ class MythTVFrontendDevice(MediaPlayerDevice):
             pinger.communicate()
             return pinger.returncode == 0
         except subprocess.CalledProcessError:
-            _LOGGER.warning("Mythfrontned ping error for '%s' at '%s'",
+            _LOGGER.warning("MythFrontend ping error for '%s' at '%s'",
                             self._name, self._host)
             return False
 
@@ -217,6 +256,9 @@ class MythTVFrontendDevice(MediaPlayerDevice):
     def media_title(self):
         """Return the title of current playing media."""
         title = self._frontend.get('title')
+        subtitle = self._frontend.get('subtitle', '')
+        if subtitle != '':
+            title += " - " + subtitle
         try:
             if self._frontend.get('state').startswith('WatchingLiveTV'):
                 title += " (Live TV)"
@@ -250,17 +292,11 @@ class MythTVFrontendDevice(MediaPlayerDevice):
     @property
     def media_image_url(self):
         """Return the media image URL."""
-        # only get the artwork if the playing media has changed
-        if self._show_artwork and self._has_playing_media_changed():
-            _LOGGER.debug('getting new media_image_url')
-            self._media_image_url = "http://192.168.1.222:6544/Content/GetImageFile?StorageGroup=Coverart&FileName=/tmdb3.py_62211_coverart.jpg"
-            # return "http://192.168.1.222:6544/Content/GetImageFile?StorageGroup=Banners&FileName=/Community%20Season%201_banner.jpg"
-            # return "http://192.168.1.222:6544/Content/GetImageFile?StorageGroup=Coverart&FileName=/Community%20Season%201_coverart.jpg"
         return self._media_image_url
 
     def _has_playing_media_changed(self):
         """Determine if media has changed since last update."""
-        title = self._frontend.get('title')
+        title = self.media_title
         has_changed = title != self._last_playing_title
         self._last_playing_title = title
         return has_changed
