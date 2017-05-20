@@ -20,6 +20,7 @@ from homeassistant.const import (
     CONF_HOST, CONF_NAME, STATE_OFF, STATE_ON, STATE_UNKNOWN, CONF_PORT,
     CONF_MAC, STATE_PLAYING, STATE_IDLE, STATE_PAUSED)
 import homeassistant.helpers.config_validation as cv
+import homeassistant.util.dt as dt_util
 
 # Prerequisite (to be converted to standard PyPI library when available)
 # https://github.com/billmeek/MythTVServicesAPI
@@ -93,13 +94,13 @@ class MythTVFrontendDevice(MediaPlayerDevice):
         """Use the API to get the latest status."""
         try:
             result = self._api.send(host=self._host, port=self._port,
-                                    endpoint='Frontend/GetStatus', 
+                                    endpoint='Frontend/GetStatus',
                                     opts={'timeout': 1})
             # _LOGGER.debug(result)  # testing
             if list(result.keys())[0] in ['Abort', 'Warning']:
                 # Remove volume controls while frontend is unavailable
-                self._volume['control'] = False 
-            
+                self._volume['control'] = False
+
                 # If ping succeeds but API fails, MythFrontend state is unknown
                 if self._ping_host():
                     self._state = STATE_UNKNOWN
@@ -121,7 +122,7 @@ class MythTVFrontendDevice(MediaPlayerDevice):
                     self._state = STATE_PLAYING
             else:
                 self._state = STATE_ON
-            
+
             # Set volume control flag and level if the volume tag is present
             if 'volume' in self._frontend:
                 self._volume['control'] = True
@@ -162,8 +163,9 @@ class MythTVFrontendDevice(MediaPlayerDevice):
         try:
             result = self._api.send(host=self._host, port=self._port,
                                     endpoint='Frontend/SendAction',
-                                    postdata={'Action': action, 'Value': value},
-                                    opts={'debug': False, 'wrmi': True, 
+                                    postdata={'Action': action,
+                                              'Value': value},
+                                    opts={'debug': False, 'wrmi': True,
                                           'timeout': 1})
             # _LOGGER.debug(result)  # testing
             self.api_update()
@@ -200,7 +202,7 @@ class MythTVFrontendDevice(MediaPlayerDevice):
         if self._mac:
             # Add WOL feature
             features |= SUPPORT_TURN_ON
-        if (self._volume['control']):
+        if self._volume['control']:
             features |= SUPPORT_VOLUME_CONTROL
         return features
 
@@ -216,6 +218,28 @@ class MythTVFrontendDevice(MediaPlayerDevice):
             pass
         return title
 
+    @property
+    def media_duration(self):
+        """Duration of current playing media in seconds."""
+        total_seconds = self._frontend.get('totalseconds')
+        if total_seconds is not None:
+            return int(total_seconds)
+        return 0
+
+    @property
+    def media_position(self):
+        """Position of current playing media in seconds."""
+        seconds_played = self._frontend.get('secondsplayed')
+        if seconds_played is not None:
+            return int(seconds_played)
+        return 0
+
+    @property
+    def media_position_updated_at(self):
+        """Last valid time of media position."""
+        if self._state == STATE_PLAYING or self._state == STATE_PAUSED:
+            return dt_util.utcnow()
+
     # @property
     # def media_image_url(self):
     #     """Return the media image URL."""
@@ -228,10 +252,10 @@ class MythTVFrontendDevice(MediaPlayerDevice):
     def volume_down(self):
         """Volume down media player."""
         self.api_send_action(action='VOLUMEDOWN')
-        
+
     def set_volume_level(self, volume):
         """Set specific volume level."""
-        self.api_send_action(action='SETVOLUME', value=int(volume*100))
+        self.api_send_action(action='SETVOLUME', value=int(volume * 100))
 
     def mute_volume(self, mute):
         """Send mute command."""
