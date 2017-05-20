@@ -52,6 +52,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Required(CONF_HOST): cv.string,
     vol.Optional(CONF_NAME, default=DEFAULT_NAME): cv.string,
     vol.Optional(CONF_PORT, default=DEFAULT_PORT_FRONTEND): cv.port,
+    vol.Optional('port_backend', default=DEFAULT_PORT_BACKEND): cv.port,
     vol.Optional(CONF_MAC): cv.string,
     vol.Optional('show_artwork', default=DEFAULT_ARTWORK_CHOICE): cv.boolean,
 })
@@ -75,14 +76,16 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
 class MythTVFrontendDevice(MediaPlayerDevice):
     """Representation of a MythTV Frontend."""
 
-    def __init__(self, host, port, name, mac, show_artwork):
+    def __init__(self, host, port_frontend, port_backend, name, mac,
+                 show_artwork):
         """Initialize the MythTV API."""
         from mythtv_services_api import send as api
         from wakeonlan import wol
         # Save a reference to the api
         self._api = api
         self._host = host
-        self._port = port
+        self._port_frontend = port_frontend
+        self._port_backend = port_backend
         self._name = name
         self._show_artwork = show_artwork
         self._frontend = {}
@@ -100,7 +103,7 @@ class MythTVFrontendDevice(MediaPlayerDevice):
     def api_update(self):
         """Use the API to get the latest status."""
         try:
-            result = self._api.send(host=self._host, port=self._port,
+            result = self._api.send(host=self._host, port=self._port_frontend,
                                     endpoint='Frontend/GetStatus',
                                     opts={'timeout': 1})
             # _LOGGER.debug(result)  # testing
@@ -147,7 +150,7 @@ class MythTVFrontendDevice(MediaPlayerDevice):
         except Exception as error:
             self._state = STATE_OFF
             _LOGGER.warning("Error with '%s' at %s:%d - %s",
-                            self._name, self._host, self._port, error)
+                            self._name, self._host, self._port_frontend, error)
             _LOGGER.warning(self._frontend)
             return False
 
@@ -157,7 +160,7 @@ class MythTVFrontendDevice(MediaPlayerDevice):
         _LOGGER.debug('getting new media_image_url')
         # Get artwork from backend, searching for current title
         result = self._api.send(host=self._host,
-                                port=DEFAULT_PORT_BACKEND,
+                                port=self._port_backend,
                                 endpoint='Dvr/GetRecordedList',
                                 opts={'timeout': 2})
         if list(result.keys())[0] in ['Abort', 'Warning']:
@@ -183,7 +186,7 @@ class MythTVFrontendDevice(MediaPlayerDevice):
             return None
 
         part_url = artworks[0].get('URL')
-        return "http://{}:{}{}".format(self._host, DEFAULT_PORT_BACKEND,
+        return "http://{}:{}{}".format(self._host, self._port_backend,
                                        part_url)
 
     # Reference: device_tracker/ping.py
@@ -207,7 +210,7 @@ class MythTVFrontendDevice(MediaPlayerDevice):
     def api_send_action(self, action, value=None):
         """Send a command to the Frontend."""
         try:
-            result = self._api.send(host=self._host, port=self._port,
+            result = self._api.send(host=self._host, port=self._port_frontend,
                                     endpoint='Frontend/SendAction',
                                     postdata={'Action': action,
                                               'Value': value},
