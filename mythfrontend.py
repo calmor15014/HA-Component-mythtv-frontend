@@ -50,9 +50,10 @@ SUPPORT_VOLUME_CONTROL = SUPPORT_VOLUME_STEP | SUPPORT_VOLUME_MUTE | \
 # Set up YAML schema
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Required(CONF_HOST): cv.string,
-    vol.Optional(CONF_NAME, default=DEFAULT_NAME): cv.string,
     vol.Optional(CONF_PORT, default=DEFAULT_PORT_FRONTEND): cv.port,
+    vol.Optional('host_backend'): cv.string,
     vol.Optional('port_backend', default=DEFAULT_PORT_BACKEND): cv.port,
+    vol.Optional(CONF_NAME, default=DEFAULT_NAME): cv.string,
     vol.Optional(CONF_MAC): cv.string,
     vol.Optional('show_artwork', default=DEFAULT_ARTWORK_CHOICE): cv.boolean,
 })
@@ -61,30 +62,35 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
 # pylint: disable=unused-argument
 def setup_platform(hass, config, add_devices, discovery_info=None):
     """Setup the MythTV Frontend platform."""
-    host = config.get(CONF_HOST)
-    port = config.get(CONF_PORT)
+    host_frontend = config.get(CONF_HOST)
+    port_frontend = config.get(CONF_PORT)
+    host_backend = config.get('host_backend', config.get(CONF_HOST))
+    port_backend = config.get('port_backend')
     name = config.get(CONF_NAME)
     mac = config.get(CONF_MAC)
     show_artwork = config.get('show_artwork')
-    _LOGGER.info('Connecting to MythTV Frontend')
 
-    add_devices([MythTVFrontendDevice(host, port, name, mac, show_artwork)])
-    _LOGGER.info("MythTV Frontend device %s:%d added as '%s'", host, port,
-                 name)
+    add_devices([MythTVFrontendDevice(host_frontend, port_frontend,
+                                      host_backend, port_backend, name, mac,
+                                      show_artwork)])
+    _LOGGER.info("MythTV Frontend %s:%d added as '%s' with backend %s:%s",
+                 host_frontend, port_frontend, name, host_backend,
+                 port_backend)
 
 
 class MythTVFrontendDevice(MediaPlayerDevice):
     """Representation of a MythTV Frontend."""
 
-    def __init__(self, host, port_frontend, port_backend, name, mac,
-                 show_artwork):
+    def __init__(self, host_frontend, port_frontend, host_backend,
+                 port_backend, name, mac, show_artwork):
         """Initialize the MythTV API."""
         from mythtv_services_api import send as api
         from wakeonlan import wol
         # Save a reference to the api
         self._api = api
-        self._host = host
+        self._host_frontend = host_frontend
         self._port_frontend = port_frontend
+        self._host_backend = host_backend
         self._port_backend = port_backend
         self._name = name
         self._show_artwork = show_artwork
@@ -103,7 +109,8 @@ class MythTVFrontendDevice(MediaPlayerDevice):
     def api_update(self):
         """Use the API to get the latest status."""
         try:
-            result = self._api.send(host=self._host, port=self._port_frontend,
+            result = self._api.send(host=self._host_frontend,
+                                    port=self._port_frontend,
                                     endpoint='Frontend/GetStatus',
                                     opts={'timeout': 1})
             # _LOGGER.debug(result)  # testing
@@ -150,7 +157,8 @@ class MythTVFrontendDevice(MediaPlayerDevice):
         except Exception as error:
             self._state = STATE_OFF
             _LOGGER.warning("Error with '%s' at %s:%d - %s",
-                            self._name, self._host, self._port_frontend, error)
+                            self._name, self._host_frontend,
+                            self._port_frontend, error)
             _LOGGER.warning(self._frontend)
             return False
 
@@ -159,12 +167,13 @@ class MythTVFrontendDevice(MediaPlayerDevice):
     def _get_artwork(self):
         _LOGGER.debug('getting new media_image_url')
         # Get artwork from backend, searching for current title
-        result = self._api.send(host=self._host,
+        result = self._api.send(host=self._host_backend,
                                 port=self._port_backend,
                                 endpoint='Dvr/GetRecordedList',
                                 opts={'timeout': 2})
         if list(result.keys())[0] in ['Abort', 'Warning']:
-            _LOGGER.debug("Backend API call failed: %s", result)
+            _LOGGER.debug("Backend API call to %s:%s failed: %s",
+                          self._host_backend, self._port_backend, result)
             return None
 
         programs = result.get('ProgramList').get('Programs')
@@ -186,16 +195,16 @@ class MythTVFrontendDevice(MediaPlayerDevice):
             return None
 
         part_url = artworks[0].get('URL')
-        return "http://{}:{}{}".format(self._host, self._port_backend,
+        return "http://{}:{}{}".format(self._host_backend, self._port_backend,
                                        part_url)
 
     # Reference: device_tracker/ping.py
     def _ping_host(self):
         """Ping the host to see if API status has some errors."""
         if sys.platform == "win32":
-            ping_cmd = ['ping', '-n 1', '-w 1000', self._host]
+            ping_cmd = ['ping', '-n 1', '-w 1000', self._host_frontend]
         else:
-            ping_cmd = ['ping', '-nq', '-c1', '-W1', self._host]
+            ping_cmd = ['ping', '-nq', '-c1', '-W1', self._host_frontend]
         pinger = subprocess.Popen(ping_cmd,
                                   stdout=subprocess.PIPE,
                                   stderr=subprocess.DEVNULL)
@@ -204,13 +213,14 @@ class MythTVFrontendDevice(MediaPlayerDevice):
             return pinger.returncode == 0
         except subprocess.CalledProcessError:
             _LOGGER.warning("MythFrontend ping error for '%s' at '%s'",
-                            self._name, self._host)
+                            self._name, self._host_frontend)
             return False
 
     def api_send_action(self, action, value=None):
         """Send a command to the Frontend."""
         try:
-            result = self._api.send(host=self._host, port=self._port_frontend,
+            result = self._api.send(host=self._host_frontend,
+                                    port=self._port_frontend,
                                     endpoint='Frontend/SendAction',
                                     postdata={'Action': action,
                                               'Value': value},

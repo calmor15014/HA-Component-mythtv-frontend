@@ -43,12 +43,13 @@ In your ```configuration.yaml``` file, add the following:
 ```
 media_player:
   - platform: mythfrontend
-    host: (hostname or IP address)
-    name: Friendly frontend name (optional, default: MythTV Frontend)
+    host: Frontend hostname or IP address
     port: Frontend API services port (optional, default: 6547)
+    host_backend: Backend hostname or IP address (optional, defaults to same as host)
     port_backend: Backend API services port (optional, default: 6544)
-    show_artwork: Choose whether or not to show artwork (optional, default: True)
+    name: Friendly frontend name (optional, default: MythTV Frontend)
     mac: MAC address for WOL (optional)
+    show_artwork: Choose whether or not to show artwork (optional, default: True)
 ```
 Note - if using IPv6, use the format ```"[::]"``` replacing ```::``` with your full IPv6 address.  ```host``` also takes hostnames if they can be resolved by DNS.
 
