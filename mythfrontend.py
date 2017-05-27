@@ -165,30 +165,23 @@ class MythTVFrontendDevice(MediaPlayerDevice):
         return True
 
     def _get_artwork(self):
-        _LOGGER.debug('getting new media_image_url')
-        # Get artwork from backend, searching for current title
+        start_time = self._frontend.get('starttime').strip('Z')
+        channel_id = self._frontend.get('chanid')
+        _LOGGER.debug('Getting media_image_url for %s on %s', start_time,
+                      channel_id)
+        # Get artwork from backend based on start time and channel id
+        endpoint = 'Dvr/GetRecorded?StartTime={}&ChanId={}'.format(start_time,
+                                                                   channel_id)
         result = self._api.send(host=self._host_backend,
                                 port=self._port_backend,
-                                endpoint='Dvr/GetRecordedList',
+                                endpoint=endpoint,
                                 opts={'timeout': 2})
         if list(result.keys())[0] in ['Abort', 'Warning']:
             _LOGGER.debug("Backend API call to %s:%s failed: %s",
                           self._host_backend, self._port_backend, result)
             return None
 
-        programs = result.get('ProgramList').get('Programs')
-        matches = [program for program in programs if
-                   program.get('Title') == self._frontend.get('title')]
-        _LOGGER.debug("%d recorded program(s) match(es) title", len(matches))
-
-        # Check for specific show if multiple programs have same title
-        if len(matches) > 1:
-            match = next(program for program in matches if
-                         program.get('SubTitle') == self._frontend.get(
-                             'subtitle'))
-        else:
-            match = matches[0]
-        artworks = match.get('Artwork').get('ArtworkInfos')
+        artworks = result.get('Program').get('Artwork').get('ArtworkInfos')
 
         # Handle programs that have no artwork
         if not artworks:
