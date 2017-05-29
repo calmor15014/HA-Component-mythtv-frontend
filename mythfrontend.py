@@ -56,6 +56,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Optional(CONF_NAME, default=DEFAULT_NAME): cv.string,
     vol.Optional(CONF_MAC): cv.string,
     vol.Optional('show_artwork', default=DEFAULT_ARTWORK_CHOICE): cv.boolean,
+    vol.Optional('shutdown_key_event'): cv.positive_int,
 })
 
 
@@ -69,10 +70,11 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
     name = config.get(CONF_NAME)
     mac = config.get(CONF_MAC)
     show_artwork = config.get('show_artwork')
+    shutdown_key_event = config.get('shutdown_key_event')
 
     add_devices([MythTVFrontendDevice(host_frontend, port_frontend,
                                       host_backend, port_backend, name, mac,
-                                      show_artwork)])
+                                      show_artwork, shutdown_key_event)])
     _LOGGER.info("MythTV Frontend %s:%d added as '%s' with backend %s:%s",
                  host_frontend, port_frontend, name, host_backend,
                  port_backend)
@@ -82,7 +84,7 @@ class MythTVFrontendDevice(MediaPlayerDevice):
     """Representation of a MythTV Frontend."""
 
     def __init__(self, host_frontend, port_frontend, host_backend,
-                 port_backend, name, mac, show_artwork):
+                 port_backend, name, mac, show_artwork, shutdown_key_event):
         """Initialize the MythTV API."""
         from mythtv_services_api import send as api
         from wakeonlan import wol
@@ -101,6 +103,7 @@ class MythTVFrontendDevice(MediaPlayerDevice):
         self._state = STATE_UNKNOWN
         self._last_playing_title = None
         self._media_image_url = None
+        self._shutdown_key_event = shutdown_key_event
 
     def update(self):
         """Retrieve the latest data."""
@@ -255,7 +258,11 @@ class MythTVFrontendDevice(MediaPlayerDevice):
             # Add WOL feature
             features |= SUPPORT_TURN_ON
         if self._volume['control']:
+            # Add volume control features
             features |= SUPPORT_VOLUME_CONTROL
+        if self._shutdown_key_event:
+            # Add system power off feature
+            features |= SUPPORT_TURN_OFF
         return features
 
     @property
@@ -350,3 +357,8 @@ class MythTVFrontendDevice(MediaPlayerDevice):
         """Turn the media player on."""
         if self._mac:
             self._wol.send_magic_packet(self._mac)
+
+    def turn_off(self):
+        """Turn the frontend device off."""
+        if self._shutdown_key_event:
+            self.api_send_action(action='SYSEVENT%02d' % self._shutdown_key_event)
