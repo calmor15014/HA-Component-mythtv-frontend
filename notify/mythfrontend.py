@@ -27,6 +27,7 @@ _LOGGER = logging.getLogger(__name__)
 # Set default configuration
 DEFAULT_NAME = 'MythTV Frontend'
 DEFAULT_PORT_FRONTEND = 6547
+DEFAULT_ORIGIN = '.'
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Required(CONF_HOST): cv.string,
@@ -39,16 +40,18 @@ ATTR_DISPLAYTIME = 'displaytime'
 @asyncio.coroutine
 def async_get_service(hass, config, discovery_info=None):
     """Return the notify service."""
+    host = config.get(CONF_HOST)
+    port = config.get(CONF_PORT)
+    origin = config.get('origin', DEFAULT_ORIGIN)
 
-    return MythTVFrontendNotificationService(hass, config.get(CONF_HOST),
-                                             config.get(CONF_PORT))
+    return MythTVFrontendNotificationService(hass, host, port, origin)
 
 
 class MythTVFrontendNotificationService(BaseNotificationService):
     """Implement the notification service for MythTV."""
 
     # pylint: disable=unused-argument
-    def __init__(self, hass, host, port):
+    def __init__(self, hass, host, port, origin):
         """Initialize the service.
         """
         from mythtv_services_api import send as api
@@ -56,21 +59,26 @@ class MythTVFrontendNotificationService(BaseNotificationService):
         self._api = api
         self._host = host
         self._port = port
+        self._origin = origin
 
         _LOGGER.debug("Setup MythTV Notifications %s", self._host)
 
     @asyncio.coroutine
     def async_send_message(self, message="", **kwargs):
         """Send a message to MythTV."""
-        endpoint = 'Frontend/SendMessage'
-        postdata = {'Message': message}
+
+        title = kwargs.get(ATTR_TITLE, ATTR_TITLE_DEFAULT)
+        endpoint = 'Frontend/SendNotification'
+        postdata = {'Message': title, 'Description': message, 'Progress': -1,
+                    'Origin': self._origin}
         _LOGGER.debug("Trying %s?%s", endpoint, postdata)  # testing
         try:
             result = self._api.send(host=self._host,
                                     port=self._port,
                                     endpoint=endpoint,
                                     postdata=postdata,
-                                    opts={'timeout': 1, 'debug': True, 'wrmi': True})
+                                    opts={'timeout': 1, 'debug': True,
+                                          'wrmi': True})
             _LOGGER.debug(result)  # testing
 
         except Exception as error:
