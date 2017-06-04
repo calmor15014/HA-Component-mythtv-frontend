@@ -165,13 +165,23 @@ class MythTVFrontendDevice(MediaPlayerDevice):
         return True
 
     def _get_artwork(self):
-        start_time = self._frontend.get('starttime').strip('Z')
-        channel_id = self._frontend.get('chanid')
-        _LOGGER.debug('Getting media_image_url for %s on %s', start_time,
-                      channel_id)
-        # Get artwork from backend based on start time and channel id
-        endpoint = 'Dvr/GetRecorded?StartTime={}&ChanId={}'.format(start_time,
-                                                                   channel_id)
+        # Get artwork from backend using video file or starttime and channelid
+        if self._frontend.get('state') == 'WatchingVideo':
+            pathname = self._frontend.get('pathname')
+            filename = pathname[pathname.rfind('/') + 1:]
+            endpoint = 'Video/GetVideoByFileName?FileName={}'.format(filename)
+            key = 'VideoMetadataInfo'
+            _LOGGER.debug('Getting media_image_url for video %s', filename)
+        else:
+            start_time = self._frontend.get('starttime').strip('Z')
+            channel_id = self._frontend.get('chanid')
+            _LOGGER.debug('Getting media_image_url for %s on %s', start_time,
+                          channel_id)
+            endpoint = 'Dvr/GetRecorded?StartTime={}&ChanId={}'.format(
+                start_time,
+                channel_id)
+            key = 'Program'
+
         result = self._api.send(host=self._host_backend,
                                 port=self._port_backend,
                                 endpoint=endpoint,
@@ -181,13 +191,16 @@ class MythTVFrontendDevice(MediaPlayerDevice):
                           self._host_backend, self._port_backend, result)
             return None
 
-        artworks = result.get('Program').get('Artwork').get('ArtworkInfos')
-
-        # Handle programs that have no artwork
-        if not artworks:
+        try:
+            artworks = result.get(key).get('Artwork').get('ArtworkInfos')
+            # Handle programs that have no artwork
+            if not artworks:
+                return None
+        except AttributeError:
             return None
 
         part_url = artworks[0].get('URL')
+        _LOGGER.debug("Found artwork: %s", part_url)
         return "http://{}:{}{}".format(self._host_backend, self._port_backend,
                                        part_url)
 
