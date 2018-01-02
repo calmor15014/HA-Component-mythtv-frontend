@@ -111,7 +111,7 @@ class MythTVFrontendDevice(MediaPlayerDevice):
         _LOGGER.debug("MythTVFrontendDevice.api_update()")
         try:
             result = self._api.send(endpoint='Frontend/GetStatus',
-                                    opts={'timeout': 1})
+                                    opts={'timeout': 1, 'novalidate': 1})
             # _LOGGER.debug(result)  # testing
             if list(result.keys())[0] in ['Abort', 'Warning']:
                 # Remove volume controls while frontend is unavailable
@@ -182,7 +182,7 @@ class MythTVFrontendDevice(MediaPlayerDevice):
             key = 'Program'
 
         result = self._api.send(endpoint=endpoint,
-                                opts={'timeout': 2})
+                                opts={'timeout': 2, 'novalidate': 1})
         if list(result.keys())[0] in ['Abort', 'Warning']:
             _LOGGER.debug("Backend API call to %s:%s failed: %s",
                           self._host_backend, self._port_backend, result)
@@ -226,7 +226,7 @@ class MythTVFrontendDevice(MediaPlayerDevice):
                                     postdata={'Action': action,
                                               'Value': value},
                                     opts={'debug': False, 'wrmi': True,
-                                          'timeout': 1})
+                                          'timeout': 1, 'novalidate': 1})
             # _LOGGER.debug(result)  # testing
             self.api_update()
         except OSError:
