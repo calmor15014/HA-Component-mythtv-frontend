@@ -87,9 +87,9 @@ class MythTVFrontendDevice(MediaPlayerDevice):
         from mythtv_services_api import send as api
         from wakeonlan import wol
         # Save a reference to the api
-        self._api = api
         self._host_frontend = host_frontend
         self._port_frontend = port_frontend
+        self._api = api.Send(self._host_frontend, self._port_frontend)
         self._host_backend = host_backend
         self._port_backend = port_backend
         self._name = name
@@ -108,10 +108,9 @@ class MythTVFrontendDevice(MediaPlayerDevice):
 
     def api_update(self):
         """Use the API to get the latest status."""
+        _LOGGER.debug("MythTVFrontendDevice.api_update()")
         try:
-            result = self._api.send(host=self._host_frontend,
-                                    port=self._port_frontend,
-                                    endpoint='Frontend/GetStatus',
+            result = self._api.send(endpoint='Frontend/GetStatus',
                                     opts={'timeout': 1})
             # _LOGGER.debug(result)  # testing
             if list(result.keys())[0] in ['Abort', 'Warning']:
@@ -182,9 +181,7 @@ class MythTVFrontendDevice(MediaPlayerDevice):
                 channel_id)
             key = 'Program'
 
-        result = self._api.send(host=self._host_backend,
-                                port=self._port_backend,
-                                endpoint=endpoint,
+        result = self._api.send(endpoint=endpoint,
                                 opts={'timeout': 2})
         if list(result.keys())[0] in ['Abort', 'Warning']:
             _LOGGER.debug("Backend API call to %s:%s failed: %s",
@@ -225,9 +222,7 @@ class MythTVFrontendDevice(MediaPlayerDevice):
     def api_send_action(self, action, value=None):
         """Send a command to the Frontend."""
         try:
-            result = self._api.send(host=self._host_frontend,
-                                    port=self._port_frontend,
-                                    endpoint='Frontend/SendAction',
+            result = self._api.send(endpoint='Frontend/SendAction',
                                     postdata={'Action': action,
                                               'Value': value},
                                     opts={'debug': False, 'wrmi': True,
