@@ -20,9 +20,9 @@ Add MythTVServicesAPI to your Python3.x/site-packages folder. If using VirtualEn
 sudo su -s /bin/bash homeassistant
 source /srv/homeassistant/bin/activate
 ```
-Next, install the API:
+Next, install the API (check https://github.com/billmeek/MythTVServicesAPI/tree/master/dist for the latest version):
 ```
-pip install https://raw.githubusercontent.com/billmeek/MythTVServicesAPI/master/dist/mythtv_services_api-0.0.8-py3-none-any.whl
+pip install https://raw.githubusercontent.com/billmeek/MythTVServicesAPI/master/dist/mythtv_services_api-0.1.7-py3-none-any.whl
 ```
 
 
