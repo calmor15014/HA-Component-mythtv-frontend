@@ -101,6 +101,8 @@ class MythTVFrontendDevice(MediaPlayerDevice):
         self._state = STATE_UNKNOWN
         self._last_playing_title = None
         self._media_image_url = None
+        self._be = api.Send(host=host_backend, port=port_backend)
+        self._fe = api.Send(host=host_frontend, port=port_frontend)
 
     def update(self):
         """Retrieve the latest data."""
@@ -110,8 +112,9 @@ class MythTVFrontendDevice(MediaPlayerDevice):
         """Use the API to get the latest status."""
         _LOGGER.debug("MythTVFrontendDevice.api_update()")
         try:
-            result = self._api.send(endpoint='Frontend/GetStatus',
-                                    opts={'timeout': 1, 'novalidate': 1})
+            result = self._fe.send(endpoint='Frontend/GetStatus',
+                                   opts={'timeout': 1})
+
             # _LOGGER.debug(result)  # testing
             if list(result.keys())[0] in ['Abort', 'Warning']:
                 # Remove volume controls while frontend is unavailable
@@ -181,8 +184,9 @@ class MythTVFrontendDevice(MediaPlayerDevice):
                 channel_id)
             key = 'Program'
 
-        result = self._api.send(endpoint=endpoint,
-                                opts={'timeout': 2, 'novalidate': 1})
+        result = self._be.send(endpoint=endpoint,
+                               opts={'timeout': 2})
+
         if list(result.keys())[0] in ['Abort', 'Warning']:
             _LOGGER.debug("Backend API call to %s:%s failed: %s",
                           self._host_backend, self._port_backend, result)
@@ -222,11 +226,10 @@ class MythTVFrontendDevice(MediaPlayerDevice):
     def api_send_action(self, action, value=None):
         """Send a command to the Frontend."""
         try:
-            result = self._api.send(endpoint='Frontend/SendAction',
-                                    postdata={'Action': action,
-                                              'Value': value},
-                                    opts={'debug': False, 'wrmi': True,
-                                          'timeout': 1, 'novalidate': 1})
+            result = self._fe.send(endpoint='Frontend/SendAction',
+                                   postdata={'Action': action,
+                                             'Value': value},
+                                   opts={'wrmi': True, 'timeout': 1})
             # _LOGGER.debug(result)  # testing
             self.api_update()
         except OSError:
