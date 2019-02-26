@@ -13,12 +13,11 @@ import voluptuous as vol
 # Adding all of the potential options for now, should trim down or implement
 from homeassistant.components.media_player import (
     PLATFORM_SCHEMA,
-    MediaPlayerDevice,
-    ENTITY_IMAGE_URL
+    MediaPlayerDevice
 )
 from homeassistant.components.media_player.const import (
     SUPPORT_NEXT_TRACK, SUPPORT_PAUSE, SUPPORT_PREVIOUS_TRACK,
-    SUPPORT_TURN_OFF, SUPPORT_VOLUME_MUTE, SUPPORT_VOLUME_STEP,
+    SUPPORT_VOLUME_MUTE, SUPPORT_VOLUME_STEP,
     SUPPORT_PLAY, SUPPORT_TURN_ON,
     SUPPORT_VOLUME_SET, SUPPORT_STOP)
 from homeassistant.const import (
