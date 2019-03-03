@@ -22,7 +22,7 @@ source /srv/homeassistant/bin/activate
 ```
 Next, install the API (check https://github.com/billmeek/MythTVServicesAPI/tree/master/dist for the latest version):
 ```
-pip install https://raw.githubusercontent.com/billmeek/MythTVServicesAPI/master/dist/mythtv_services_api-0.1.7-py3-none-any.whl
+pip install https://raw.githubusercontent.com/billmeek/MythTVServicesAPI/master/dist/mythtv_services_api-0.1.9-py3-none-any.whl
 ```
 
 
