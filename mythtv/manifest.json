@@ -1,0 +1,8 @@
+{
+  "domain": "media_player",
+  "name": "mythtv",
+  "documentation": "https://github.com/calmor15014/HA-Component-mythtv-frontend",
+  "dependencies": [],
+  "codeowners": [],
+  "requirements": []
+}
