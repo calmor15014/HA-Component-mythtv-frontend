@@ -19,7 +19,7 @@ from homeassistant.components.media_player.const import (
     SUPPORT_NEXT_TRACK, SUPPORT_PAUSE, SUPPORT_PREVIOUS_TRACK,
     SUPPORT_VOLUME_MUTE, SUPPORT_VOLUME_STEP,
     SUPPORT_PLAY, SUPPORT_TURN_ON,
-    SUPPORT_VOLUME_SET, SUPPORT_STOP)
+    SUPPORT_VOLUME_SET, SUPPORT_STOP, SUPPORT_SEEK)
 from homeassistant.const import (
     CONF_HOST, CONF_NAME, STATE_OFF, STATE_ON, STATE_UNKNOWN, CONF_PORT,
     CONF_MAC, STATE_PLAYING, STATE_IDLE, STATE_PAUSED)
@@ -45,7 +45,7 @@ DEFAULT_ARTWORK_CHOICE = True
 # #TODO - Implement SUPPORT_TURN_OFF
 SUPPORT_MYTHTV_FRONTEND = SUPPORT_PAUSE | SUPPORT_PREVIOUS_TRACK | \
                           SUPPORT_NEXT_TRACK | SUPPORT_PLAY | \
-                          SUPPORT_STOP
+                          SUPPORT_STOP | SUPPORT_SEEK
 
 # Set supported media_player functions when volume_control is enabled
 SUPPORT_VOLUME_CONTROL = SUPPORT_VOLUME_STEP | SUPPORT_VOLUME_MUTE | \
@@ -365,3 +365,7 @@ class MythTVFrontendDevice(MediaPlayerDevice):
         """Turn the media player on."""
         if self._mac:
             self._wol.send_magic_packet(self._mac)
+
+    def media_seek(self, position):
+        """Send seek command."""
+        self.api_send_action(action='SEEKABSOLUTE', value=int(position))
