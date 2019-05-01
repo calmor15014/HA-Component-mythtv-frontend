@@ -37,6 +37,7 @@ mkdir -p custom_components/mythtv
 cd custom_components/mythtv
 wget https://raw.githubusercontent.com/calmor15014/HA-Component-mythtv-frontend/master/mythtv/media_player.py
 wget https://raw.githubusercontent.com/calmor15014/HA-Component-mythtv-frontend/master/mythtv/notify.py
+wget https://raw.githubusercontent.com/calmor15014/HA-Component-mythtv-frontend/master/mythtv/manifest.json
 ```
 This makes the required folder/s and copies the files from this repository to the new folder.  
 
