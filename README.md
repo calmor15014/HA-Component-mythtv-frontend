@@ -37,6 +37,7 @@ mkdir -p custom_components/mythtv
 cd custom_components/mythtv
 wget https://raw.githubusercontent.com/calmor15014/HA-Component-mythtv-frontend/master/mythtv/media_player.py
 wget https://raw.githubusercontent.com/calmor15014/HA-Component-mythtv-frontend/master/mythtv/notify.py
+wget https://raw.githubusercontent.com/calmor15014/HA-Component-mythtv-frontend/master/mythtv/manifest.json
 ```
 This makes the required folder/s and copies the files from this repository to the new folder.  
 
@@ -77,7 +78,8 @@ notify:
 * Option are SYSEVENT01 to SYSEVENT10 or none
 * To setup sysevent in MythFronted go to setup -> System Event Handlers, scroll to Keystroke event # to assign shutdown command
 * the Keystroke event # is then your SYSEVENT#, aka. Keystroke event #3 = SYSEVENT03
-* 
+* [Mythtv wiki for sudo permissions](https://www.mythtv.org/wiki/Mythwelcome#Allow_a_user_to_run_the_MythShutdown_program_with_root_privileges) - Help with allowing user to perform sudo commands
+
 ## Acknowledgements
 
 * [MythTVServicesAPI](http://github.com/billmeek/MythTVServicesAPI) - Implementing an easy way to interface with MythTV

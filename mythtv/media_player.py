@@ -29,9 +29,6 @@ import homeassistant.util.dt as dt_util
 # Prerequisite (to be converted to standard PyPI library when available)
 # https://github.com/billmeek/MythTVServicesAPI
 
-# WOL requirement for turn_on
-REQUIREMENTS = ['wakeonlan==0.2.2']
-
 # Set up logging object
 _LOGGER = logging.getLogger(__name__)
 
@@ -60,7 +57,6 @@ DEFAULT_TURN_OFF_SYSEVENT = 'none'
 
 
 # Set core supported media_player functions
-# #TODO - Implement SUPPORT_TURN_OFF
 SUPPORT_MYTHTV_FRONTEND = SUPPORT_PAUSE | SUPPORT_PREVIOUS_TRACK | \
     SUPPORT_NEXT_TRACK | SUPPORT_PLAY | \
     SUPPORT_STOP | SUPPORT_SEEK | SUPPORT_TURN_OFF
@@ -112,7 +108,7 @@ class MythTVFrontendDevice(MediaPlayerDevice):
                  port_backend, name, mac, show_artwork, turn_off):
         """Initialize the MythTV API."""
         from mythtv_services_api import send as api
-        from wakeonlan import wol
+        import wakeonlan
         # Save a reference to the api
         self._host_frontend = host_frontend
         self._port_frontend = port_frontend
@@ -123,7 +119,7 @@ class MythTVFrontendDevice(MediaPlayerDevice):
         self._show_artwork = show_artwork
         self._frontend = {}
         self._mac = mac
-        self._wol = wol
+        self._wol = wakeonlan
         self._volume = {'control': False, 'level': 0, 'muted': False}
         self._state = STATE_UNKNOWN
         self._last_playing_title = None
