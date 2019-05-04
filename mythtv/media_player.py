@@ -1,8 +1,8 @@
 """
 Support for interface with a MythTV Frontend.
 
-#For more details about this platform, please refer to the documentation at
-#https://github.com/calmor15014/HA-Component-mythtv-frontend/
+# For more details about this platform, please refer to the documentation at
+# https://github.com/calmor15014/HA-Component-mythtv-frontend/
 """
 import logging
 import subprocess
@@ -18,7 +18,7 @@ from homeassistant.components.media_player import (
 from homeassistant.components.media_player.const import (
     SUPPORT_NEXT_TRACK, SUPPORT_PAUSE, SUPPORT_PREVIOUS_TRACK,
     SUPPORT_VOLUME_MUTE, SUPPORT_VOLUME_STEP,
-    SUPPORT_PLAY, SUPPORT_TURN_ON,
+    SUPPORT_PLAY, SUPPORT_TURN_ON, SUPPORT_TURN_OFF,
     SUPPORT_VOLUME_SET, SUPPORT_STOP, SUPPORT_SEEK)
 from homeassistant.const import (
     CONF_HOST, CONF_NAME, STATE_OFF, STATE_ON, STATE_UNKNOWN, CONF_PORT,
@@ -35,21 +35,39 @@ REQUIREMENTS = ['wakeonlan==0.2.2']
 # Set up logging object
 _LOGGER = logging.getLogger(__name__)
 
+# set up sysevents for tun_off
+CONF_TURN_OFF_SYSEVENT = 'turn_off_sysevent'
+TURN_OFF_SYSEVENT_OPTIONS = [
+    'SYSEVENT01',
+    'SYSEVENT02',
+    'SYSEVENT03',
+    'SYSEVENT04',
+    'SYSEVENT05',
+    'SYSEVENT06',
+    'SYSEVENT07',
+    'SYSEVENT08',
+    'SYSEVENT09',
+    'SYSEVENT10',
+    'none'
+]
+
 # Set default configuration
 DEFAULT_NAME = 'MythTV Frontend'
 DEFAULT_PORT_FRONTEND = 6547
 DEFAULT_PORT_BACKEND = 6544
 DEFAULT_ARTWORK_CHOICE = True
+DEFAULT_TURN_OFF_SYSEVENT = 'none'
+
 
 # Set core supported media_player functions
 # #TODO - Implement SUPPORT_TURN_OFF
 SUPPORT_MYTHTV_FRONTEND = SUPPORT_PAUSE | SUPPORT_PREVIOUS_TRACK | \
-                          SUPPORT_NEXT_TRACK | SUPPORT_PLAY | \
-                          SUPPORT_STOP | SUPPORT_SEEK
+    SUPPORT_NEXT_TRACK | SUPPORT_PLAY | \
+    SUPPORT_STOP | SUPPORT_SEEK | SUPPORT_TURN_OFF
 
 # Set supported media_player functions when volume_control is enabled
 SUPPORT_VOLUME_CONTROL = SUPPORT_VOLUME_STEP | SUPPORT_VOLUME_MUTE | \
-                         SUPPORT_VOLUME_SET
+    SUPPORT_VOLUME_SET
 
 # Set up YAML schema
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
@@ -60,6 +78,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Optional(CONF_NAME, default=DEFAULT_NAME): cv.string,
     vol.Optional(CONF_MAC): cv.string,
     vol.Optional('show_artwork', default=DEFAULT_ARTWORK_CHOICE): cv.boolean,
+    vol.Optional(CONF_TURN_OFF_SYSEVENT, default=DEFAULT_TURN_OFF_SYSEVENT): cv.string,
 })
 
 
@@ -73,10 +92,14 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
     name = config.get(CONF_NAME)
     mac = config.get(CONF_MAC)
     show_artwork = config.get('show_artwork')
+    if config.get(CONF_TURN_OFF_SYSEVENT) in TURN_OFF_SYSEVENT_OPTIONS:
+        turn_off = config.get(CONF_TURN_OFF_SYSEVENT)
+    else:
+        turn_off = 'none'
 
     add_devices([MythTVFrontendDevice(host_frontend, port_frontend,
                                       host_backend, port_backend, name, mac,
-                                      show_artwork)])
+                                      show_artwork, turn_off)])
     _LOGGER.info("MythTV Frontend %s:%d added as '%s' with backend %s:%s",
                  host_frontend, port_frontend, name, host_backend,
                  port_backend)
@@ -86,7 +109,7 @@ class MythTVFrontendDevice(MediaPlayerDevice):
     """Representation of a MythTV Frontend."""
 
     def __init__(self, host_frontend, port_frontend, host_backend,
-                 port_backend, name, mac, show_artwork):
+                 port_backend, name, mac, show_artwork, turn_off):
         """Initialize the MythTV API."""
         from mythtv_services_api import send as api
         from wakeonlan import wol
@@ -107,6 +130,7 @@ class MythTVFrontendDevice(MediaPlayerDevice):
         self._media_image_url = None
         self._be = api.Send(host=host_backend, port=port_backend)
         self._fe = api.Send(host=host_frontend, port=port_frontend)
+        self._turn_off = turn_off
 
     def update(self):
         """Retrieve the latest data."""
@@ -369,3 +393,8 @@ class MythTVFrontendDevice(MediaPlayerDevice):
     def media_seek(self, position):
         """Send seek command."""
         self.api_send_action(action='SEEKABSOLUTE', value=int(position))
+
+    def turn_off(self):
+        """Turn the media player off."""
+        if self._turn_off != 'none':
+            self.api_send_action(action=self._turn_off)
