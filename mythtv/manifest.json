@@ -1,0 +1,10 @@
+{
+  "domain": "mythtv",
+  "name": "Mythtv",
+  "documentation": "https://github.com/calmor15014/HA-Component-mythtv-frontend",
+  "requirements": [
+    "wakeonlan==1.1.6"
+  ],
+  "dependencies": [],
+  "codeowners": []
+}

@@ -14,7 +14,7 @@ It also provides a *notify* service so you can send messages to your MythTV fron
 - [Home Assistant](https://home-assistant.io) installed and operational.  
 Installation using a [VirtualEnv](https://home-assistant.io/docs/installation/virtualenv/) or [Hassbian](https://home-assistant.io/docs/hassbian/installation/) on Raspberry Pi is recommended and installation instructions are based on this method.
 
-- [MythTVServicesAPI Utilities](https://github.com/billmeek/MythTVServicesAPI) 
+- [MythTVServicesAPI Utilities](https://github.com/billmeek/MythTVServicesAPI)
 
 ### Installing MythTVServicesAPI
 
@@ -37,6 +37,7 @@ mkdir -p custom_components/mythtv
 cd custom_components/mythtv
 wget https://raw.githubusercontent.com/calmor15014/HA-Component-mythtv-frontend/master/mythtv/media_player.py
 wget https://raw.githubusercontent.com/calmor15014/HA-Component-mythtv-frontend/master/mythtv/notify.py
+wget https://raw.githubusercontent.com/calmor15014/HA-Component-mythtv-frontend/master/mythtv/manifest.json
 ```
 This makes the required folder/s and copies the files from this repository to the new folder.  
 
@@ -56,6 +57,7 @@ media_player:
     name: Friendly frontend name (optional, default: MythTV Frontend)
     mac: MAC address for WOL (optional)
     show_artwork: Choose whether or not to show artwork (optional, default: True)
+    turn_off_sysevent: mythfrontend sysevent to shutdown (optional, default: 'none')
 ```
 
 #### Notify
@@ -70,6 +72,13 @@ notify:
 
 * If you are using IPv6, use the format ```"[::]"``` replacing ```::``` with your full IPv6 address.  ```host``` also takes hostnames if they can be resolved by DNS.
 * MythTV Services API in version 0.29-pre appears to have a broken implementation of SendAction, so this version may not respond correctly to frontend actions.  0.28-fixes has been tested to work normally.  If the frontend status is indicated, but controls do not work, please post on the [Home Assistant development thread](https://community.home-assistant.io/t/adding-mythtv-frontend-component/16991) with your MythTV version.
+
+## Sysevents
+
+* Option are SYSEVENT01 to SYSEVENT10 or none
+* To setup sysevent in MythFronted go to setup -> System Event Handlers, scroll to Keystroke event # to assign shutdown command
+* the Keystroke event # is then your SYSEVENT#, aka. Keystroke event #3 = SYSEVENT03
+* [Mythtv wiki for sudo permissions](https://www.mythtv.org/wiki/Mythwelcome#Allow_a_user_to_run_the_MythShutdown_program_with_root_privileges) - Help with allowing user to perform sudo commands
 
 ## Acknowledgements
 
