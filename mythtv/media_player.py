@@ -181,11 +181,17 @@ class MythTVFrontendDevice(MediaPlayerDevice):
                 self._media_image_url = self._get_artwork()
 
         except Exception as error:
-            self._state = STATE_OFF
-            _LOGGER.warning("Error with '%s' at %s:%d - %s",
-                            self._name, self._host_frontend,
-                            self._port_frontend, error)
-            _LOGGER.warning(self._frontend)
+            # Log only if we don't already know the system is off/unreachable
+            if self._state != STATE_OFF and self._state != STATE_UNKNOWN:
+                _LOGGER.warning("Error with '%s' - %s",
+                                self._name, error)
+            
+            # Use ping to set status
+            if self._ping_host():
+                self._state = STATE_UNKNOWN
+            # If ping fails also, MythFrontend device is off/unreachable
+            else:
+                self._state = STATE_OFF
             return False
 
         return True
@@ -393,4 +399,8 @@ class MythTVFrontendDevice(MediaPlayerDevice):
     def turn_off(self):
         """Turn the media player off."""
         if self._turn_off != 'none':
+            # Send the turn-off action
             self.api_send_action(action=self._turn_off)
+            # Tell HA the state is unknown to prevent further inputs
+            # and errors on unresponsive frontends
+            self._state = STATE_UNKNOWN
