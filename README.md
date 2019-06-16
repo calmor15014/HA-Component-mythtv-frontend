@@ -73,7 +73,14 @@ notify:
 
 * If you are using IPv6, use the format ```"[::]"``` replacing ```::``` with your full IPv6 address.  ```host``` also takes hostnames if they can be resolved by DNS.
 * MythTV Services API in version 0.29-pre appears to have a broken implementation of SendAction, so this version may not respond correctly to frontend actions.  0.28-fixes has been tested to work normally.  If the frontend status is indicated, but controls do not work, please post on the [Home Assistant development thread](https://community.home-assistant.io/t/adding-mythtv-frontend-component/16991) with your MythTV version.
-* If your Home Assistant is on a different subnet, you may need to allow all connections to the Services API.  To test if Frontend Services are accessible to this plugin, go to ```http://hostname:6547``` from a web browser.  If the connection is reset, you may need to enable all connections.  Unfortunately, this does not appear to be in the menus of a frontend-only machine.  In the ```settings``` table of the MySQL database, value ```'AllowConnFromAll'``` needs to be present and data set to ```1``` for each frontend hostname. 
+
+## Troubleshooting
+
+* Interval errors - for multiple frontends, HA tries to scan all of the entities within the status update scan interval for media players, which is set at the default value of 10 seconds. Frontends that are powered off will time out on each status update. For each frontend that is powered off, the code waits 1 second to time out of status update, and 1 second for the ping timeout. If you have more than 4 frontends all off, this will cause multiple errors for exceeding the interval.
+  * Solution: Add ```scan_interval: x``` to each entity configuration line in YAML, where x = total number of frontends * 2, + 1 or 2 seconds for processing time
+* If your Home Assistant is on a different subnet, you may need to allow all connections to the Services API.  
+  * Test: To determine if Frontend Services are accessible to this plugin, go to ```http://hostname:6547``` from a web browser.  If the connection is reset, you may need to enable all connections.  
+  * Solution: unfortunately, this does not appear to be in the menus of a frontend-only machine. In the ```settings``` table of the MySQL database, value ```AllowConnFromAll``` needs to be present and data set to ```1``` for each frontend hostname. 
 
 ## Sysevents
 
