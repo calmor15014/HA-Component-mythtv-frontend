@@ -63,22 +63,28 @@ media_player:
 #### Notify
 ```
 notify:
-  - platform: mythtv
+  - name: Name for notification entity in Home Assistant
+    platform: mythtv
     host: Frontend hostname or IP address
-    origin: Name you want to show with on-screen messages (optional, default: ' ')
+    origin: Text to show between Title and Message in on-screen messages (optional, default: ' ')
 ```
 
 ## Notes
 
 * If you are using IPv6, use the format ```"[::]"``` replacing ```::``` with your full IPv6 address.  ```host``` also takes hostnames if they can be resolved by DNS.
 * MythTV Services API in version 0.29-pre appears to have a broken implementation of SendAction, so this version may not respond correctly to frontend actions.  0.28-fixes has been tested to work normally.  If the frontend status is indicated, but controls do not work, please post on the [Home Assistant development thread](https://community.home-assistant.io/t/adding-mythtv-frontend-component/16991) with your MythTV version.
+* If your Home Assistant is on a different subnet, you may need to allow all connections to the Services API.  To test if Frontend Services are accessible to this plugin, go to ```http://hostname:6547``` from a web browser.  If the connection is reset, you may need to enable all connections.  Unfortunately, this does not appear to be in the menus of a frontend-only machine.  In the ```settings``` table of the MySQL database, value ```'AllowConnFromAll'``` needs to be present and data set to ```1``` for each frontend hostname. 
 
 ## Sysevents
 
-* Option are SYSEVENT01 to SYSEVENT10 or none
-* To setup sysevent in MythFronted go to setup -> System Event Handlers, scroll to Keystroke event # to assign shutdown command
-* the Keystroke event # is then your SYSEVENT#, aka. Keystroke event #3 = SYSEVENT03
-* [Mythtv wiki for sudo permissions](https://www.mythtv.org/wiki/Mythwelcome#Allow_a_user_to_run_the_MythShutdown_program_with_root_privileges) - Help with allowing user to perform sudo commands
+* Options are SYSEVENT01 to SYSEVENT10 or none
+* To setup a sysevent in MythFrontend:
+  * Navigate to Setup -> System Event Handlers
+  * Scroll to desired Keystroke event #
+  * Assign shutdown command
+* The Keystroke event # is then your SYSEVENT# - for example, Keystroke event #3 = SYSEVENT03
+* On Ubuntu 18.04.02 and MythTV 30, the following command may work: ```/sbin/shutdown now``` 
+* If this doesn't work, some installations of MythTV also include a MythShutdown script.  Help can be found here: [Mythtv wiki for sudo permissions](https://www.mythtv.org/wiki/Mythwelcome#Allow_a_user_to_run_the_MythShutdown_program_with_root_privileges)
 
 ## Acknowledgements
 
