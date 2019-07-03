@@ -90,4 +90,4 @@ ENV/
 
 # IDE settings
 .idea
-.kdev4
+*.kdev4
