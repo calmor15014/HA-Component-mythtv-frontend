@@ -404,3 +404,8 @@ class MythTVFrontendDevice(MediaPlayerDevice):
             # Tell HA the state is unknown to prevent further inputs
             # and errors on unresponsive frontends
             self._state = STATE_UNKNOWN
+
+    def media_stop(self):
+        """Stop playback of media"""
+        if self._state == STATE_PLAYING or self._state == STATE_PAUSED:
+            self.api_send_action(action='ESCAPE')
