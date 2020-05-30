@@ -13,7 +13,7 @@ import voluptuous as vol
 # Adding all of the potential options for now, should trim down or implement
 from homeassistant.components.media_player import (
     PLATFORM_SCHEMA,
-    MediaPlayerDevice
+    MediaPlayerEntity
 )
 from homeassistant.components.media_player.const import (
     SUPPORT_NEXT_TRACK, SUPPORT_PAUSE, SUPPORT_PREVIOUS_TRACK,
@@ -79,7 +79,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
 
 
 # pylint: disable=unused-argument
-def setup_platform(hass, config, add_devices, discovery_info=None):
+def setup_platform(hass, config, add_entities, discovery_info=None):
     """Setup the MythTV Frontend platform."""
     host_frontend = config.get(CONF_HOST)
     port_frontend = config.get(CONF_PORT)
@@ -93,7 +93,7 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
     else:
         turn_off = 'none'
 
-    add_devices([MythTVFrontendDevice(host_frontend, port_frontend,
+    add_entities([MythTVFrontendEntity(host_frontend, port_frontend,
                                       host_backend, port_backend, name, mac,
                                       show_artwork, turn_off)])
     _LOGGER.info("MythTV Frontend %s:%d added as '%s' with backend %s:%s",
@@ -101,7 +101,7 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
                  port_backend)
 
 
-class MythTVFrontendDevice(MediaPlayerDevice):
+class MythTVFrontendEntity(MediaPlayerEntity):
     """Representation of a MythTV Frontend."""
 
     def __init__(self, host_frontend, port_frontend, host_backend,
@@ -134,7 +134,7 @@ class MythTVFrontendDevice(MediaPlayerDevice):
 
     def api_update(self):
         """Use the API to get the latest status."""
-        _LOGGER.debug("MythTVFrontendDevice.api_update()")
+        _LOGGER.debug("MythTVFrontendEntity.api_update()")
         try:
             result = self._fe.send(endpoint='Frontend/GetStatus',
                                    opts={'timeout': 1})
@@ -147,7 +147,7 @@ class MythTVFrontendDevice(MediaPlayerDevice):
                 # If ping succeeds but API fails, MythFrontend state is unknown
                 if self._ping_host():
                     self._state = STATE_UNKNOWN
-                # If ping fails also, MythFrontend device is off/unreachable
+                # If ping fails also, MythFrontend is off/unreachable
                 else:
                     self._state = STATE_OFF
                 return False
@@ -189,7 +189,7 @@ class MythTVFrontendDevice(MediaPlayerDevice):
             # Use ping to set status
             if self._ping_host():
                 self._state = STATE_UNKNOWN
-            # If ping fails also, MythFrontend device is off/unreachable
+            # If ping fails also, MythFrontend is off/unreachable
             else:
                 self._state = STATE_OFF
             return False
@@ -270,12 +270,12 @@ class MythTVFrontendDevice(MediaPlayerDevice):
 
     @property
     def name(self):
-        """Return the name of the device."""
+        """Return the name of the entity."""
         return self._name
 
     @property
     def state(self):
-        """Return the state of the device."""
+        """Return the state of the entity."""
         return self._state
 
     @property
