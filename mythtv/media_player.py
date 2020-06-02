@@ -10,6 +10,8 @@ import sys
 
 import voluptuous as vol
 
+from . import DOMAIN
+
 # Adding all of the potential options for now, should trim down or implement
 from homeassistant.components.media_player import (
     PLATFORM_SCHEMA,
@@ -51,10 +53,8 @@ TURN_OFF_SYSEVENT_OPTIONS = [
 # Set default configuration
 DEFAULT_NAME = 'MythTV Frontend'
 DEFAULT_PORT_FRONTEND = 6547
-DEFAULT_PORT_BACKEND = 6544
 DEFAULT_ARTWORK_CHOICE = True
 DEFAULT_TURN_OFF_SYSEVENT = 'none'
-
 
 # Set core supported media_player functions
 SUPPORT_MYTHTV_FRONTEND = SUPPORT_PAUSE | SUPPORT_PREVIOUS_TRACK | \
@@ -69,22 +69,17 @@ SUPPORT_VOLUME_CONTROL = SUPPORT_VOLUME_STEP | SUPPORT_VOLUME_MUTE | \
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Required(CONF_HOST): cv.string,
     vol.Optional(CONF_PORT, default=DEFAULT_PORT_FRONTEND): cv.port,
-    vol.Optional('host_backend'): cv.string,
-    vol.Optional('port_backend', default=DEFAULT_PORT_BACKEND): cv.port,
     vol.Optional(CONF_NAME, default=DEFAULT_NAME): cv.string,
     vol.Optional(CONF_MAC): cv.string,
     vol.Optional('show_artwork', default=DEFAULT_ARTWORK_CHOICE): cv.boolean,
     vol.Optional(CONF_TURN_OFF_SYSEVENT, default=DEFAULT_TURN_OFF_SYSEVENT): cv.string,
 })
-
-
 # pylint: disable=unused-argument
 def setup_platform(hass, config, add_entities, discovery_info=None):
     """Setup the MythTV Frontend platform."""
     host_frontend = config.get(CONF_HOST)
     port_frontend = config.get(CONF_PORT)
-    host_backend = config.get('host_backend', config.get(CONF_HOST))
-    port_backend = config.get('port_backend')
+    mythtv = hass.data[DOMAIN]
     name = config.get(CONF_NAME)
     mac = config.get(CONF_MAC)
     show_artwork = config.get('show_artwork')
@@ -93,28 +88,23 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
     else:
         turn_off = 'none'
 
-    add_entities([MythTVFrontendEntity(host_frontend, port_frontend,
-                                      host_backend, port_backend, name, mac,
-                                      show_artwork, turn_off)])
-    _LOGGER.info("MythTV Frontend %s:%d added as '%s' with backend %s:%s",
-                 host_frontend, port_frontend, name, host_backend,
-                 port_backend)
+    add_entities([MythTVFrontendEntity(host_frontend, port_frontend, mythtv,
+                                        name, mac, show_artwork, turn_off)])
+    _LOGGER.info("MythTV Frontend %s:%d added as '%s'",
+                 host_frontend, port_frontend, name)
 
 
 class MythTVFrontendEntity(MediaPlayerEntity):
     """Representation of a MythTV Frontend."""
 
-    def __init__(self, host_frontend, port_frontend, host_backend,
-                 port_backend, name, mac, show_artwork, turn_off):
+    def __init__(self, host_frontend, port_frontend, mythtv, name, mac, 
+                 show_artwork, turn_off):
         """Initialize the MythTV API."""
         from mythtv_services_api import send as api
         import wakeonlan
         # Save a reference to the api
         self._host_frontend = host_frontend
         self._port_frontend = port_frontend
-        self._api = api.Send(self._host_frontend, self._port_frontend)
-        self._host_backend = host_backend
-        self._port_backend = port_backend
         self._name = name
         self._show_artwork = show_artwork
         self._frontend = {}
@@ -124,7 +114,7 @@ class MythTVFrontendEntity(MediaPlayerEntity):
         self._state = STATE_UNKNOWN
         self._last_playing_title = None
         self._media_image_url = None
-        self._be = api.Send(host=host_backend, port=port_backend)
+        self._mythtv = mythtv
         self._fe = api.Send(host=host_frontend, port=port_frontend)
         self._turn_off = turn_off
 
@@ -197,43 +187,13 @@ class MythTVFrontendEntity(MediaPlayerEntity):
         return True
 
     def _get_artwork(self):
-        # Get artwork from backend using video file or starttime and channelid
+        # Get artwork from backend using video file or startTime and channelId
         if self._frontend.get('state') == 'WatchingVideo':
-            pathname = self._frontend.get('pathname')
-            filename = pathname[pathname.rfind('/') + 1:]
-            endpoint = 'Video/GetVideoByFileName?FileName={}'.format(filename)
-            key = 'VideoMetadataInfo'
-            _LOGGER.debug('Getting media_image_url for video %s', filename)
+            return self._mythtv.video_artwork(self._frontend.get('pathname'))
         else:
-            start_time = self._frontend.get('starttime').strip('Z')
-            channel_id = self._frontend.get('chanid')
-            _LOGGER.debug('Getting media_image_url for %s on %s', start_time,
-                          channel_id)
-            endpoint = 'Dvr/GetRecorded?StartTime={}&ChanId={}'.format(
-                start_time,
-                channel_id)
-            key = 'Program'
-
-        result = self._be.send(endpoint=endpoint,
-                               opts={'timeout': 2})
-
-        if list(result.keys())[0] in ['Abort', 'Warning']:
-            _LOGGER.debug("Backend API call to %s:%s failed: %s",
-                          self._host_backend, self._port_backend, result)
-            return None
-
-        try:
-            artworks = result.get(key).get('Artwork').get('ArtworkInfos')
-            # Handle programs that have no artwork
-            if not artworks:
-                return None
-        except AttributeError:
-            return None
-
-        part_url = artworks[0].get('URL')
-        _LOGGER.debug("Found artwork: %s", part_url)
-        return "http://{}:{}{}".format(self._host_backend, self._port_backend,
-                                       part_url)
+            startTime = self._frontend.get('starttime').strip('Z')
+            channelId = self._frontend.get('chanid')
+            return self._mythtv.recording_artwork(startTime, channelId)
 
     # Reference: device_tracker/ping.py
     def _ping_host(self):
