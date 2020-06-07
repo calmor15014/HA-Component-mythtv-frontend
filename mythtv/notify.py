@@ -9,10 +9,13 @@ import logging
 
 import voluptuous as vol
 
-from homeassistant.const import (CONF_HOST, CONF_PORT)
+from homeassistant.const import CONF_HOST, CONF_PORT
 from homeassistant.components.notify import (
-    ATTR_TITLE, ATTR_TITLE_DEFAULT, PLATFORM_SCHEMA,
-    BaseNotificationService)
+    ATTR_TITLE,
+    ATTR_TITLE_DEFAULT,
+    PLATFORM_SCHEMA,
+    BaseNotificationService,
+)
 import homeassistant.helpers.config_validation as cv
 
 # Prerequisite (to be converted to standard PyPI library when available)
@@ -22,16 +25,18 @@ import homeassistant.helpers.config_validation as cv
 _LOGGER = logging.getLogger(__name__)
 
 # Set default configuration
-DEFAULT_NAME = 'MythTV Frontend'
+DEFAULT_NAME = "MythTV Frontend"
 DEFAULT_PORT_FRONTEND = 6547
-DEFAULT_ORIGIN = ' '
+DEFAULT_ORIGIN = " "
 
-PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
-    vol.Required(CONF_HOST): cv.string,
-    vol.Optional(CONF_PORT, default=DEFAULT_PORT_FRONTEND): cv.port,
-})
+PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
+    {
+        vol.Required(CONF_HOST): cv.string,
+        vol.Optional(CONF_PORT, default=DEFAULT_PORT_FRONTEND): cv.port,
+    }
+)
 
-ATTR_DISPLAYTIME = 'displaytime'
+ATTR_DISPLAYTIME = "displaytime"
 
 
 @asyncio.coroutine
@@ -39,7 +44,7 @@ def async_get_service(hass, config, discovery_info=None):
     """Return the notify service."""
     host = config.get(CONF_HOST)
     port = config.get(CONF_PORT)
-    origin = config.get('origin', DEFAULT_ORIGIN)
+    origin = config.get("origin", DEFAULT_ORIGIN)
 
     return MythTVFrontendNotificationService(hass, host, port, origin)
 
@@ -52,6 +57,7 @@ class MythTVFrontendNotificationService(BaseNotificationService):
         """Initialize the MythTV Services API.
         """
         from mythtv_services_api import send as api
+
         # Save a reference to the api
         self._api = api
         self._host_frontend = host_frontend
@@ -66,15 +72,20 @@ class MythTVFrontendNotificationService(BaseNotificationService):
         """Send a message to MythTV frontend."""
 
         title = kwargs.get(ATTR_TITLE, ATTR_TITLE_DEFAULT)
-        endpoint = 'Frontend/SendNotification'
-        postdata = {'Message': title, 'Description': message, 'Progress': -1,
-                    'Origin': self._origin}
+        endpoint = "Frontend/SendNotification"
+        postdata = {
+            "Message": title,
+            "Description": message,
+            "Progress": -1,
+            "Origin": self._origin,
+        }
         _LOGGER.debug("Trying %s?%s", endpoint, postdata)  # testing
         try:
-            result = self._fe.send(endpoint=endpoint,
-                                   postdata=postdata,
-                                   opts={'timeout': 1, 'debug': True,
-                                         'wrmi': True})
+            result = self._fe.send(
+                endpoint=endpoint,
+                postdata=postdata,
+                opts={"timeout": 1, "debug": True, "wrmi": True},
+            )
             _LOGGER.debug(result)  # testing
 
         except Exception as error:
