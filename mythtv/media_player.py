@@ -8,35 +8,37 @@ import logging
 import subprocess
 import sys
 
+from mythtv_services_api import send as api
 import voluptuous as vol
+import wakeonlan
 
 # Adding all of the potential options for now, should trim down or implement
 from homeassistant.components.media_player import PLATFORM_SCHEMA, MediaPlayerEntity
 from homeassistant.components.media_player.const import (
     SUPPORT_NEXT_TRACK,
     SUPPORT_PAUSE,
-    SUPPORT_PREVIOUS_TRACK,
-    SUPPORT_VOLUME_MUTE,
-    SUPPORT_VOLUME_STEP,
     SUPPORT_PLAY,
-    SUPPORT_TURN_ON,
-    SUPPORT_TURN_OFF,
-    SUPPORT_VOLUME_SET,
-    SUPPORT_STOP,
+    SUPPORT_PREVIOUS_TRACK,
     SUPPORT_SEEK,
+    SUPPORT_STOP,
+    SUPPORT_TURN_OFF,
+    SUPPORT_TURN_ON,
+    SUPPORT_VOLUME_MUTE,
+    SUPPORT_VOLUME_SET,
+    SUPPORT_VOLUME_STEP,
 )
 from homeassistant.const import (
     CONF_HOST,
+    CONF_MAC,
     CONF_NAME,
+    CONF_PORT,
+    CONF_TIMEOUT,
+    STATE_IDLE,
     STATE_OFF,
     STATE_ON,
-    STATE_UNKNOWN,
-    CONF_PORT,
-    CONF_MAC,
-    STATE_PLAYING,
-    STATE_IDLE,
     STATE_PAUSED,
-    CONF_TIMEOUT,
+    STATE_PLAYING,
+    STATE_UNKNOWN,
 )
 import homeassistant.helpers.config_validation as cv
 import homeassistant.util.dt as dt_util
@@ -188,7 +190,9 @@ class MythTVFrontendEntity(MediaPlayerEntity):
         """Use the API to get the latest status."""
         _LOGGER.debug("MythTVFrontendEntity.api_update()")
         try:
-            result = self._fe.send(endpoint="Frontend/GetStatus", opts={"timeout": 1})
+            result = self._fe.send(
+                endpoint="Frontend/GetStatus", opts={"timeout": self._timeout}
+            )
 
             if list(result.keys())[0] in ["Abort", "Warning"]:
                 # Remove volume controls while frontend is unavailable
@@ -230,7 +234,7 @@ class MythTVFrontendEntity(MediaPlayerEntity):
             elif self._show_artwork and self._has_playing_media_changed():
                 self._media_image_url = self._get_artwork()
 
-        except Exception as error:
+        except RuntimeError as error:
             # Log only if we don't already know the system is off/unreachable
             if self._state != STATE_OFF and self._state != STATE_UNKNOWN:
                 _LOGGER.warning("Error with '%s' - %s", self._name, error)
@@ -394,6 +398,7 @@ class MythTVFrontendEntity(MediaPlayerEntity):
         """Last valid time of media position."""
         if self._state == STATE_PLAYING or self._state == STATE_PAUSED:
             return dt_util.utcnow()
+        return None
 
     @property
     def media_image_url(self):

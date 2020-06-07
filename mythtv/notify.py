@@ -7,15 +7,16 @@ https://home-assistant.io/components/notify.mythfrontend (but not yet)
 import asyncio
 import logging
 
+from mythtv_services_api import send as api
 import voluptuous as vol
 
-from homeassistant.const import CONF_HOST, CONF_PORT
 from homeassistant.components.notify import (
     ATTR_TITLE,
     ATTR_TITLE_DEFAULT,
     PLATFORM_SCHEMA,
     BaseNotificationService,
 )
+from homeassistant.const import CONF_HOST, CONF_PORT
 import homeassistant.helpers.config_validation as cv
 
 # Prerequisite (to be converted to standard PyPI library when available)
@@ -38,7 +39,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
 
 ATTR_DISPLAYTIME = "displaytime"
 
-
+# pylint: disable=unused-argument
 @asyncio.coroutine
 def async_get_service(hass, config, discovery_info=None):
     """Return the notify service."""
@@ -54,9 +55,7 @@ class MythTVFrontendNotificationService(BaseNotificationService):
 
     # pylint: disable=unused-argument
     def __init__(self, hass, host_frontend, port_frontend, origin):
-        """Initialize the MythTV Services API.
-        """
-        from mythtv_services_api import send as api
+        """Initialize the MythTV Services API."""
 
         # Save a reference to the api
         self._api = api
