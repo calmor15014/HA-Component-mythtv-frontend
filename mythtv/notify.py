@@ -16,7 +16,7 @@ from homeassistant.components.notify import (
     PLATFORM_SCHEMA,
     BaseNotificationService,
 )
-from homeassistant.const import CONF_HOST, CONF_PORT
+from homeassistant.const import CONF_HOST, CONF_PORT, CONF_TIMEOUT
 import homeassistant.helpers.config_validation as cv
 
 # Prerequisite (to be converted to standard PyPI library when available)
@@ -29,11 +29,13 @@ _LOGGER = logging.getLogger(__name__)
 DEFAULT_NAME = "MythTV Frontend"
 DEFAULT_PORT_FRONTEND = 6547
 DEFAULT_ORIGIN = " "
+DEFAULT_TIMEOUT = 1.0
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
     {
         vol.Required(CONF_HOST): cv.string,
         vol.Optional(CONF_PORT, default=DEFAULT_PORT_FRONTEND): cv.port,
+        vol.Optional(CONF_TIMEOUT, default=DEFAULT_TIMEOUT): vol.Coerce(float),
     }
 )
 
@@ -46,15 +48,16 @@ def async_get_service(hass, config, discovery_info=None):
     host = config.get(CONF_HOST)
     port = config.get(CONF_PORT)
     origin = config.get("origin", DEFAULT_ORIGIN)
+    timeout = config.get(CONF_TIMEOUT)
 
-    return MythTVFrontendNotificationService(hass, host, port, origin)
+    return MythTVFrontendNotificationService(hass, host, port, origin, timeout)
 
 
 class MythTVFrontendNotificationService(BaseNotificationService):
     """Implement the notification service for MythTV."""
 
     # pylint: disable=unused-argument
-    def __init__(self, hass, host_frontend, port_frontend, origin):
+    def __init__(self, hass, host_frontend, port_frontend, origin, timeout):
         """Initialize the MythTV Services API."""
 
         # Save a reference to the api
@@ -62,6 +65,7 @@ class MythTVFrontendNotificationService(BaseNotificationService):
         self._host_frontend = host_frontend
         self._port_frontend = port_frontend
         self._origin = origin
+        self._timeout = timeout
         self._fe = api.Send(host=host_frontend, port=port_frontend)
 
         _LOGGER.debug("Setup MythTV Notifications %s", self._host_frontend)
@@ -83,7 +87,7 @@ class MythTVFrontendNotificationService(BaseNotificationService):
             result = self._fe.send(
                 endpoint=endpoint,
                 postdata=postdata,
-                opts={"timeout": 1, "debug": True, "wrmi": True},
+                opts={"timeout": self._timeout, "debug": True, "wrmi": True},
             )
             _LOGGER.debug(result)  # testing
 
