@@ -323,6 +323,10 @@ class MythTVFrontendEntity(MediaPlayerEntity):
         return result
 
     @property
+    def unique_id(self):
+        return f"mythtv_{self._name}"
+
+    @property
     def name(self):
         """Return the name of the entity."""
         return self._name
