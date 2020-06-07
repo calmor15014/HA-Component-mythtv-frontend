@@ -36,6 +36,7 @@ from homeassistant.const import (
     STATE_PLAYING,
     STATE_IDLE,
     STATE_PAUSED,
+    CONF_TIMEOUT,
 )
 import homeassistant.helpers.config_validation as cv
 import homeassistant.util.dt as dt_util
@@ -68,7 +69,7 @@ DEFAULT_PORT_FRONTEND = 6547
 DEFAULT_PORT_BACKEND = 6544
 DEFAULT_ARTWORK_CHOICE = True
 DEFAULT_TURN_OFF_SYSEVENT = "none"
-
+DEFAULT_TIMEOUT = 1.0
 
 # Set core supported media_player functions
 SUPPORT_MYTHTV_FRONTEND = (
@@ -97,9 +98,9 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
         vol.Optional(
             CONF_TURN_OFF_SYSEVENT, default=DEFAULT_TURN_OFF_SYSEVENT
         ): cv.string,
+        vol.Optional(CONF_TIMEOUT, default=DEFAULT_TIMEOUT): vol.Coerce(float),
     }
 )
-
 
 # pylint: disable=unused-argument
 def setup_platform(hass, config, add_entities, discovery_info=None):
@@ -111,6 +112,7 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
     name = config.get(CONF_NAME)
     mac = config.get(CONF_MAC)
     show_artwork = config.get("show_artwork")
+    timeout = config.get(CONF_TIMEOUT)
     if config.get(CONF_TURN_OFF_SYSEVENT) in TURN_OFF_SYSEVENT_OPTIONS:
         turn_off = config.get(CONF_TURN_OFF_SYSEVENT)
     else:
@@ -127,6 +129,7 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
                 mac,
                 show_artwork,
                 turn_off,
+                timeout,
             )
         ]
     )
@@ -153,10 +156,9 @@ class MythTVFrontendEntity(MediaPlayerEntity):
         mac,
         show_artwork,
         turn_off,
+        timeout,
     ):
         """Initialize the MythTV API."""
-        from mythtv_services_api import send as api
-        import wakeonlan
 
         # Save a reference to the api
         self._host_frontend = host_frontend
@@ -176,6 +178,7 @@ class MythTVFrontendEntity(MediaPlayerEntity):
         self._be = api.Send(host=host_backend, port=port_backend)
         self._fe = api.Send(host=host_frontend, port=port_frontend)
         self._turn_off = turn_off
+        self._timeout = timeout
 
     def update(self):
         """Retrieve the latest data."""
@@ -187,7 +190,6 @@ class MythTVFrontendEntity(MediaPlayerEntity):
         try:
             result = self._fe.send(endpoint="Frontend/GetStatus", opts={"timeout": 1})
 
-            # _LOGGER.debug(result)  # testing
             if list(result.keys())[0] in ["Abort", "Warning"]:
                 # Remove volume controls while frontend is unavailable
                 self._volume["control"] = False
@@ -262,7 +264,7 @@ class MythTVFrontendEntity(MediaPlayerEntity):
             )
             key = "Program"
 
-        result = self._be.send(endpoint=endpoint, opts={"timeout": 2})
+        result = self._be.send(endpoint=endpoint, opts={"timeout": self._timeout})
 
         if list(result.keys())[0] in ["Abort", "Warning"]:
             _LOGGER.debug(
@@ -312,9 +314,8 @@ class MythTVFrontendEntity(MediaPlayerEntity):
             result = self._fe.send(
                 endpoint="Frontend/SendAction",
                 postdata={"Action": action, "Value": value},
-                opts={"wrmi": True, "timeout": 1},
+                opts={"wrmi": True, "timeout": self._timeout},
             )
-            # _LOGGER.debug(result)  # testing
             self.api_update()
         except OSError:
             self._state = STATE_OFF
