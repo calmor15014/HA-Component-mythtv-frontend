@@ -95,7 +95,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
         vol.Optional(CONF_PORT, default=DEFAULT_PORT_FRONTEND): cv.port,
         vol.Optional(CONF_NAME, default=DEFAULT_NAME): cv.string,
         vol.Optional(CONF_MAC): cv.string,
-        vol.Optional('show_artwork', default=DEFAULT_ARTWORK_CHOICE): cv.boolean,
+        vol.Optional("show_artwork", default=DEFAULT_ARTWORK_CHOICE): cv.boolean,
         vol.Optional(
             CONF_TURN_OFF_SYSEVENT, default=DEFAULT_TURN_OFF_SYSEVENT
         ): cv.string,
@@ -115,7 +115,7 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
     if config.get(CONF_TURN_OFF_SYSEVENT) in TURN_OFF_SYSEVENT_OPTIONS:
         turn_off = config.get(CONF_TURN_OFF_SYSEVENT)
     else:
-        turn_off = 'none'
+        turn_off = "none"
 
     add_entities(
         [
@@ -133,8 +133,8 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
     )
     _LOGGER.info(
         "MythTV Frontend %s:%d added as '%s'",
-        host_frontend, 
-        port_frontend, 
+        host_frontend,
+        port_frontend,
         name,
     )
 
@@ -146,7 +146,7 @@ class MythTVFrontendEntity(MediaPlayerEntity):
         self,
         host_frontend,
         port_frontend,
-        mythtv, 
+        mythtv,
         name,
         mac,
         show_artwork,
