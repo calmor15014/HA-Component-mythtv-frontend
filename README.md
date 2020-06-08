@@ -57,7 +57,8 @@ media_player:
     name: Friendly frontend name (optional, default: MythTV Frontend)
     mac: MAC address for WOL (optional)
     show_artwork: Choose whether or not to show artwork (optional, default: True)
-    turn_off_sysevent: mythfrontend sysevent to shutdown (optional, default: 'none')
+    turn_off_sysevent: mythfrontend sysevent to shutdown (optional, default: "none")
+    timeout: number of seconds to use as timeout in API send (optional, default: 1.0) 
 ```
 
 #### Notify
@@ -66,7 +67,7 @@ notify:
   - name: Name for notification entity in Home Assistant
     platform: mythtv
     host: Frontend hostname or IP address
-    origin: Text to show between Title and Message in on-screen messages (optional, default: ' ')
+    origin: Text to show between Title and Message in on-screen messages (optional, default: " ")
 ```
 
 ## Notes
