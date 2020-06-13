@@ -8,7 +8,7 @@ import logging
 import subprocess
 import sys
 
-from mythtv_services_api import send as api
+from mythtvservicesapi import send as api
 import voluptuous as vol
 import wakeonlan
 
