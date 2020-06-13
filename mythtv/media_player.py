@@ -240,13 +240,13 @@ class MythTVFrontendEntity(MediaPlayerEntity):
         return True
 
     def _get_artwork(self):
-        # Get artwork from backend using video file or startTime and channelId
+        # Get artwork from backend using video file or starttime and chanid
         if self._frontend.get("state") == "WatchingVideo":
             return self._mythtv.video_artwork(self._frontend.get("pathname"))
         else:
-            startTime = self._frontend.get("starttime").strip("Z")
-            channelId = self._frontend.get("chanid")
-            return self._mythtv.recording_artwork(startTime, channelId)
+            start_time = self._frontend.get("starttime").strip("Z")
+            channel_id = self._frontend.get("chanid")
+            return self._mythtv.recording_artwork(start_time, channel_id)
 
     # Reference: device_tracker/ping.py
     def _ping_host(self):
