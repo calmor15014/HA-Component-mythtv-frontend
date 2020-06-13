@@ -73,12 +73,12 @@ class MythTVBackend:
     def get_video_artwork(self, path):
         filename = path[path.rfind("/") + 1 :]
         _LOGGER.debug("Getting media_image_url for video %s", filename)
-        endpoint = "Video/GetVideoByFileName?FileName={}".format(filename)
+        endpoint = f"Video/GetVideoByFileName?FileName={filename}"
         return self._call_API(endpoint)
 
-    def get_recording_artwork(self, startTime, channelId):
-        _LOGGER.debug("Getting media_image_url for %s on %s", startTime, channelId)
-        endpoint = "Dvr/GetRecorded?StartTime={}&ChanId={}".format(startTime, channelId)
+    def get_recording_artwork(self, start_time, channel_id):
+        _LOGGER.debug("Getting media_image_url for %s on %s", start_time, channel_id)
+        endpoint = f"Dvr/GetRecorded?StartTime={start_time}&ChanId={channel_id}"
         return self._call_API(endpoint)
 
 
@@ -114,4 +114,4 @@ class MythTV:
 
         part_url = artworks[0].get("URL")
         _LOGGER.debug("Found artwork: %s", part_url)
-        return "http://{}:{}{}".format(self._host, self._port, part_url)
+        return f"http://{self._host}:{self._port}{part_url}"
