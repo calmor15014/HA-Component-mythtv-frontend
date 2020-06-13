@@ -4,7 +4,8 @@ Home Assistant component for MythTV 0.27+ Frontend
 ## About This Component
 This component is being developed to allow Home Assistant to interact with a MythTV frontend using the MythTV API Service (available in MythTV version 0.27 and later).  It will work with a frontend-only or combination frontend and backend machine.  This component currently only adds frontend services. Future updates may provide interfaces with the backend.
 
-This component contains a *media_player* entity, and therefore will try to implement as many of the media_player funcitons including play/pause, volume control, and chapter controls.  
+This component contains a *media_player* entity, and therefore will try to implement as many of the media_player functions including play/pause, volume control, and chapter controls.  
+
 It also provides a *notify* service so you can send messages to your MythTV frontend.
 
 ## Getting Started
@@ -14,20 +15,16 @@ It also provides a *notify* service so you can send messages to your MythTV fron
 - [Home Assistant](https://home-assistant.io) installed and operational.  
 Installation using a [VirtualEnv](https://home-assistant.io/docs/installation/virtualenv/) or [Hassbian](https://home-assistant.io/docs/hassbian/installation/) on Raspberry Pi is recommended and installation instructions are based on this method.
 
-- [MythTVServicesAPI Utilities](https://github.com/billmeek/MythTVServicesAPI)
+### Installing MythTV Services API
 
-### Installing MythTVServicesAPI
-
-Add MythTVServicesAPI to your Python3.x/site-packages folder. If using VirtualEnv or Hassbian, switch to your homeassistant user and enter the VirtualEnv by performing the following commands (depending on how you have installed Home Assistant):
+Add MythTVServicesAPI to your Python3.x/site-packages folder. If using VirtualEnv or Hassbian, switch to your homeassistant user and enter the VirtualEnv by performing the following commands (depending on how you have installed Home Assistant).  
+Next, install the API:
 ```
 sudo su -s /bin/bash homeassistant
 source /srv/homeassistant/bin/activate
+pip install -i https://test.pypi.org/simple/ mythtvservicesapi
+exit
 ```
-Next, install the API (check https://github.com/billmeek/MythTVServicesAPI/tree/master/dist for the latest version and adjust this command to match):
-```
-pip install https://raw.githubusercontent.com/billmeek/MythTVServicesAPI/master/dist/mythtv_services_api-0.1.9-py3-none-any.whl
-```
-
 
 ### Installing MythTV as a custom component
 In the Home Assistant configuration directory (usually located at `/home/homeassistant/.homeassistant` for VirtualEnv/Hassbian installs), install this component using something like the following (adjust to suit your system):
