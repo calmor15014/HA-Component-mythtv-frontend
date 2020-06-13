@@ -123,19 +123,16 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
                 host_frontend,
                 port_frontend,
                 mythtv,
-                name, 
-                mac, 
-                show_artwork, 
+                name,
+                mac,
+                show_artwork,
                 turn_off,
                 timeout,
             )
         ]
     )
     _LOGGER.info(
-        "MythTV Frontend %s:%d added as '%s'",
-        host_frontend,
-        port_frontend,
-        name,
+        "MythTV Frontend %s:%d added as '%s'", host_frontend, port_frontend, name,
     )
 
 
