@@ -59,7 +59,7 @@ def setup(hass, config):
 class MythTVBackend:
     def __init__(self, host, port):
         # Import MythTV API for communications
-        from mythtv_services_api import send as api
+        from mythtvservicesapi import send as api
 
         self._be = api.Send(host=host, port=port)
 
