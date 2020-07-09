@@ -13,6 +13,10 @@ import homeassistant.helpers.config_validation as cv
 # Import configuration constants
 from homeassistant.const import CONF_PORT, CONF_HOST
 
+from homeassistant.helpers.event import call_later
+
+from . import MythTVFrontendEntity
+
 # Set the domain name for the integration
 DOMAIN = "mythtv"
 
@@ -35,6 +39,8 @@ CONFIG_SCHEMA = vol.Schema(
 
 # Set up logging object
 _LOGGER = logging.getLogger(__name__)
+
+DISCOVERY_INTERVAL = 60
 
 
 def setup(hass, config):
@@ -88,10 +94,50 @@ class MythTV:
     def __init__(self, host, port):
         self._host = host
         self._port = port
+
+        # create a dictionary for frontends. key is name, val is MythTVFrontEndEntity
+        self._frontends = {}
+
         try:
             self._backend = MythTVBackend(host, port)
         except:
             _LOGGER.error("Error adding MythTV backend class")
+
+    def _get_frontends(self):
+        """Get frontends from backend and process them. Create new frontend if needed,
+        otherwise mark them connected or disconnected."""
+        response = self._call_API("Myth/GetFrontends?OnLine=1")
+
+        online_frontends = []
+
+        for frontend in response["FrontendList"]["Frontends"]:
+            if frontend["Name"] not in self._frontends:
+                # create new MythTVFrontendEntity
+                self._frontends[frontend["Name"]] = MythTVFrontendEntity(
+                    frontend["IP"], frontend["Port"], self, frontend["Name"]
+                )
+            online_frontends.append(frontend["Name"])
+
+        for frontend in self._frontends:
+            if frontend in online_frontends:
+                frontend.connected = True
+            else:
+                frontend.connected = False
+
+    def _discovery(self, now=None):
+        """Discover frontends. Creates new frontends where needed, otherwise updates
+        their `_connected` attribute."""
+        self._get_frontends()
+
+        call_later(DISCOVERY_INTERVAL, self._discovery)
+
+    def start_discovery(self):
+        """Start discovering frontends."""
+        self._cancel_discovery = call_later(DISCOVERY_INTERVAL, self._discovery)
+
+    def stop_discovery(self):
+        """Stop discovering frontends."""
+        self._cancel_discovery()
 
     def video_artwork(self, pathname):
         return self._process_art_response(
