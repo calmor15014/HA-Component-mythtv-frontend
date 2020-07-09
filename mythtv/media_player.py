@@ -10,8 +10,6 @@ from mythtvservicesapi import send as api
 import voluptuous as vol
 import wakeonlan
 
-from . import DOMAIN
-
 # Adding all of the potential options for now, should trim down or implement
 from homeassistant.components.media_player import PLATFORM_SCHEMA, MediaPlayerEntity
 from homeassistant.components.media_player.const import (
@@ -40,8 +38,10 @@ from homeassistant.const import (
     STATE_PLAYING,
     STATE_UNKNOWN,
 )
-import homeassistant.helpers.config_validation as cv
-import homeassistant.util.dt as dt_util
+from homeassistant.helpers import config_validation as cv
+from homeassistant.util import dt as dt_util
+
+from .const import DOMAIN
 
 # Prerequisite (to be converted to standard PyPI library when available)
 # https://github.com/billmeek/MythTVServicesAPI
@@ -103,8 +103,14 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
 
 
 # pylint: disable=unused-argument
-def setup_platform(hass, config, add_entities, discovery_info=None):
+def setup_platform(hass, conf, add_entities, discovery_info=None):
     """Setup the MythTV Frontend platform."""
+    if discovery_info:
+        _LOGGER.debug("Reached setup_platform with discovery_info: %s", discovery_info)
+        config = PLATFORM_SCHEMA(discovery_info)
+    else:
+        config = conf
+
     host_frontend = config.get(CONF_HOST)
     port_frontend = config.get(CONF_PORT)
     mythtv = hass.data[DOMAIN]
@@ -117,20 +123,18 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
     else:
         turn_off = "none"
 
-    add_entities(
-        [
-            MythTVFrontendEntity(
-                host_frontend,
-                port_frontend,
-                mythtv,
-                name,
-                mac,
-                show_artwork,
-                turn_off,
-                timeout,
-            )
-        ]
+    frontend = MythTVFrontendEntity(
+        host_frontend,
+        port_frontend,
+        mythtv,
+        name,
+        mac,
+        show_artwork,
+        turn_off,
+        timeout,
     )
+    add_entities([frontend], True)  # update entity immediately to set unique_id
+
     _LOGGER.info(
         "MythTV Frontend %s:%d added as '%s'", host_frontend, port_frontend, name,
     )
@@ -155,7 +159,7 @@ class MythTVFrontendEntity(MediaPlayerEntity):
         # Save a reference to the api
         self._host_frontend = host_frontend
         self._port_frontend = port_frontend
-        self._name = name
+        self._name = name  # should this be called friendly_name?
         self._show_artwork = show_artwork
         self._frontend = {}
         self._mac = mac
@@ -169,6 +173,7 @@ class MythTVFrontendEntity(MediaPlayerEntity):
         self._turn_off = turn_off
         self._timeout = timeout
         self._connected = True
+        self._unique_id = None
 
     def update(self):
         """Use the API to get the latest status."""
@@ -184,6 +189,10 @@ class MythTVFrontendEntity(MediaPlayerEntity):
                     self.available = False
                     self._state = STATE_UNKNOWN
                     return False
+
+                # Set the unique_id if not set
+                if not self._unique_id:
+                    self.unique_id = result["FrontendStatus"]["Name"]
 
                 # Make frontend status values more user-friendly
                 self._frontend = result["FrontendStatus"]["State"]
@@ -243,7 +252,15 @@ class MythTVFrontendEntity(MediaPlayerEntity):
 
     @property
     def unique_id(self):
-        return f"mythtv_{self._name}"
+        return self._unique_id
+
+    @unique_id.setter
+    def unique_id(self, unique_id):
+        """Set the unique_id. Shoud only be called once."""
+        if self._unique_id:
+            raise RuntimeError("unique_id already set")
+        self._unique_id = unique_id
+        self._mythtv._frontends[unique_id] = self
 
     @property
     def name(self):

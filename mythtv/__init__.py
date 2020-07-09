@@ -6,21 +6,25 @@ frontend artwork retrieval.
 """
 import logging
 
+from mythtvservicesapi import send as api
 # import asyncio #not yet...
 import voluptuous as vol
-import homeassistant.helpers.config_validation as cv
 
+from homeassistant.components.media_player import DOMAIN as MP_DOMAIN
 # Import configuration constants
-from homeassistant.const import CONF_PORT, CONF_HOST
-
+from homeassistant.const import (
+    CONF_HOST,
+    CONF_NAME,
+    CONF_PORT,
+    EVENT_HOMEASSISTANT_START,
+)
+from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers.discovery import load_platform
 from homeassistant.helpers.event import call_later
 
-from . import MythTVFrontendEntity
+from .const import DOMAIN
 
-# Set the domain name for the integration
-DOMAIN = "mythtv"
-
-# Set default platform configuration
+# Set default port for backend configuration
 DEFAULT_PORT = 6544
 
 # Set up config schema
@@ -40,6 +44,7 @@ CONFIG_SCHEMA = vol.Schema(
 # Set up logging object
 _LOGGER = logging.getLogger(__name__)
 
+# How often to poll for connected/disconnected backends
 DISCOVERY_INTERVAL = 60
 
 
@@ -50,12 +55,16 @@ def setup(hass, config):
     port = config[DOMAIN][CONF_PORT]
 
     try:
-        mythtv = MythTV(host, port)
+        mythtv = MythTVBackend(host, port, hass, config)
     except:
         _LOGGER.error("Error in setting up MythTV platform")
         return False
 
     hass.data[DOMAIN] = mythtv
+    if hass.is_running:
+        mythtv.start_discovery()
+    else:
+        hass.bus.listen_once(EVENT_HOMEASSISTANT_START, mythtv.start_discovery())
 
     _LOGGER.debug("Successfully set up MythTV platform")
 
@@ -63,9 +72,19 @@ def setup(hass, config):
 
 
 class MythTVBackend:
-    def __init__(self, host, port):
-        # Import MythTV API for communications
-        from mythtvservicesapi import send as api
+    """Representation of the MythTV backend."""
+
+    def __init__(self, host, port, hass, config):
+        self._host = host
+        self._port = port
+
+        # needed to load discovered frontends
+        self.hass = hass
+        self.config = config
+
+        # create a dictionary of frontends.
+        # Myth/GetFrontend has no uuid, so we use "IP" as key
+        self._frontends = {}
 
         self._be = api.Send(host=host, port=port)
 
@@ -87,53 +106,48 @@ class MythTVBackend:
         endpoint = f"Dvr/GetRecorded?StartTime={start_time}&ChanId={channel_id}"
         return self._call_API(endpoint)
 
-
-class MythTV:
-    """Set up the functions to access the API"""
-
-    def __init__(self, host, port):
-        self._host = host
-        self._port = port
-
-        # create a dictionary for frontends. key is name, val is MythTVFrontEndEntity
-        self._frontends = {}
-
-        try:
-            self._backend = MythTVBackend(host, port)
-        except:
-            _LOGGER.error("Error adding MythTV backend class")
-
     def _get_frontends(self):
-        """Get frontends from backend and process them. Create new frontend if needed,
-        otherwise mark them connected or disconnected."""
+        """Get frontends with "Name" as key."""
         response = self._call_API("Myth/GetFrontends?OnLine=1")
-
-        online_frontends = []
-
+        frontend_dict = {}
         for frontend in response["FrontendList"]["Frontends"]:
-            if frontend["Name"] not in self._frontends:
-                # create new MythTVFrontendEntity
-                self._frontends[frontend["Name"]] = MythTVFrontendEntity(
-                    frontend["IP"], frontend["Port"], self, frontend["Name"]
-                )
-            online_frontends.append(frontend["Name"])
-
-        for frontend in self._frontends:
-            if frontend in online_frontends:
-                frontend.connected = True
-            else:
-                frontend.connected = False
+            frontend_dict[frontend["Name"]] = frontend
+        return frontend_dict
 
     def _discovery(self, now=None):
         """Discover frontends. Creates new frontends where needed, otherwise updates
         their `_connected` attribute."""
-        self._get_frontends()
+        frontends = self._get_frontends()
+        _LOGGER.debug("Got frontends: %s", frontends)
 
-        call_later(DISCOVERY_INTERVAL, self._discovery)
+        online_frontends = []
+
+        for key, val in frontends.items():
+            if key not in self._frontends:
+                # we have discovered a new frontend
+                discovery_info = {
+                    CONF_HOST: val["IP"],
+                    CONF_PORT: val["Port"],
+                    CONF_NAME: val["Name"],
+                }
+                load_platform(self.hass, DOMAIN, MP_DOMAIN, discovery_info, self.config)
+
+            online_frontends.append(key)
+
+        for key, val in self._frontends.items():
+            if key in online_frontends:
+                val.connected = True
+            else:
+                val.connected = False
+
+        call_later(self.hass, DISCOVERY_INTERVAL, self._discovery)
 
     def start_discovery(self):
         """Start discovering frontends."""
-        self._cancel_discovery = call_later(DISCOVERY_INTERVAL, self._discovery)
+        self._cancel_discovery = call_later(
+            self.hass, DISCOVERY_INTERVAL, self._discovery
+        )
+        _LOGGER.debug("Started frontend discovery")
 
     def stop_discovery(self):
         """Stop discovering frontends."""
@@ -141,12 +155,12 @@ class MythTV:
 
     def video_artwork(self, pathname):
         return self._process_art_response(
-            "VideoMetadataInfo", self._backend.get_video_artwork(pathname)
+            "VideoMetadataInfo", self.get_video_artwork(pathname)
         )
 
     def recording_artwork(self, startTime, channelId):
         return self._process_art_response(
-            "Program", self._backend.get_recording_artwork(startTime, channelId)
+            "Program", self.get_recording_artwork(startTime, channelId)
         )
 
     def _process_art_response(self, key, response):
