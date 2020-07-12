@@ -5,14 +5,10 @@ Support for interface with a MythTV Frontend.
 # https://github.com/calmor15014/HA-Component-mythtv-frontend/
 """
 import logging
-import subprocess
-import sys
 
-from mythtv_services_api import send as api
+from mythtvservicesapi import send as api
 import voluptuous as vol
 import wakeonlan
-
-from . import DOMAIN
 
 # Adding all of the potential options for now, should trim down or implement
 from homeassistant.components.media_player import PLATFORM_SCHEMA, MediaPlayerEntity
@@ -42,8 +38,10 @@ from homeassistant.const import (
     STATE_PLAYING,
     STATE_UNKNOWN,
 )
-import homeassistant.helpers.config_validation as cv
-import homeassistant.util.dt as dt_util
+from homeassistant.helpers import config_validation as cv
+from homeassistant.util import dt as dt_util
+
+from .const import DOMAIN, MYTHTV_ID
 
 # Prerequisite (to be converted to standard PyPI library when available)
 # https://github.com/billmeek/MythTVServicesAPI
@@ -88,23 +86,35 @@ SUPPORT_MYTHTV_FRONTEND = (
 # Set supported media_player functions when volume_control is enabled
 SUPPORT_VOLUME_CONTROL = SUPPORT_VOLUME_STEP | SUPPORT_VOLUME_MUTE | SUPPORT_VOLUME_SET
 
+# Set up frontend schema, shared by platform and discovery
+FRONTEND_SCHEMA = {
+    vol.Required(CONF_HOST): cv.string,
+    vol.Optional(CONF_PORT, default=DEFAULT_PORT_FRONTEND): cv.port,
+    vol.Optional(CONF_NAME, default=DEFAULT_NAME): cv.string,
+    vol.Optional(CONF_MAC): cv.string,
+    vol.Optional(MYTHTV_ID): cv.string,
+    vol.Optional("show_artwork", default=DEFAULT_ARTWORK_CHOICE): cv.boolean,
+    vol.Optional(
+        CONF_TURN_OFF_SYSEVENT, default=DEFAULT_TURN_OFF_SYSEVENT
+    ): cv.string,
+    vol.Optional(CONF_TIMEOUT, default=DEFAULT_TIMEOUT): vol.Coerce(float),
+}
+
 # Set up YAML schema
-PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
-    {
-        vol.Required(CONF_HOST): cv.string,
-        vol.Optional(CONF_PORT, default=DEFAULT_PORT_FRONTEND): cv.port,
-        vol.Optional(CONF_NAME, default=DEFAULT_NAME): cv.string,
-        vol.Optional(CONF_MAC): cv.string,
-        vol.Optional("show_artwork", default=DEFAULT_ARTWORK_CHOICE): cv.boolean,
-        vol.Optional(
-            CONF_TURN_OFF_SYSEVENT, default=DEFAULT_TURN_OFF_SYSEVENT
-        ): cv.string,
-        vol.Optional(CONF_TIMEOUT, default=DEFAULT_TIMEOUT): vol.Coerce(float),
-    }
-)
-# pylint: disable=unused-argument
-def setup_platform(hass, config, add_entities, discovery_info=None):
-    """Setup the MythTV Frontend platform."""
+PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(FRONTEND_SCHEMA)
+
+# Set up discovery schema
+DISCOVERY_SCHEMA = vol.Schema(FRONTEND_SCHEMA)
+
+
+def setup_platform(hass, conf, add_entities, discovery_info=None):
+    """Set up the MythTV Frontend platform."""
+    if discovery_info:
+        _LOGGER.debug("Reached setup_platform with discovery_info: %s", discovery_info)
+        config = DISCOVERY_SCHEMA(discovery_info)
+    else:
+        config = conf
+
     host_frontend = config.get(CONF_HOST)
     port_frontend = config.get(CONF_PORT)
     mythtv = hass.data[DOMAIN]
@@ -116,21 +126,21 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
         turn_off = config.get(CONF_TURN_OFF_SYSEVENT)
     else:
         turn_off = "none"
+    mythtv_id = config.get(MYTHTV_ID)
 
-    add_entities(
-        [
-            MythTVFrontendEntity(
-                host_frontend,
-                port_frontend,
-                mythtv,
-                name,
-                mac,
-                show_artwork,
-                turn_off,
-                timeout,
-            )
-        ]
+    frontend = MythTVFrontendEntity(
+        host_frontend,
+        port_frontend,
+        mythtv,
+        name,
+        mac,
+        show_artwork,
+        turn_off,
+        timeout,
+        mythtv_id,
     )
+    add_entities([frontend], True)  # update entity immediately to set unique_id
+
     _LOGGER.info(
         "MythTV Frontend %s:%d added as '%s'", host_frontend, port_frontend, name,
     )
@@ -149,13 +159,14 @@ class MythTVFrontendEntity(MediaPlayerEntity):
         show_artwork,
         turn_off,
         timeout,
+        mythtv_id,
     ):
         """Initialize the MythTV API."""
 
         # Save a reference to the api
         self._host_frontend = host_frontend
         self._port_frontend = port_frontend
-        self._name = name
+        self._name = name  # should this be called friendly_name?
         self._show_artwork = show_artwork
         self._frontend = {}
         self._mac = mac
@@ -168,71 +179,57 @@ class MythTVFrontendEntity(MediaPlayerEntity):
         self._fe = api.Send(host=host_frontend, port=port_frontend)
         self._turn_off = turn_off
         self._timeout = timeout
+        self._connected = True
+        self._unique_id = mythtv_id
 
     def update(self):
-        """Retrieve the latest data."""
-        return self.api_update()
-
-    def api_update(self):
         """Use the API to get the latest status."""
-        _LOGGER.debug("MythTVFrontendEntity.api_update()")
-        try:
-            result = self._fe.send(
-                endpoint="Frontend/GetStatus", opts={"timeout": self._timeout}
-            )
+        _LOGGER.debug("MythTVFrontendEntity.api_update() for frontend %s", self.unique_id)
+        if self._connected:  # only update connected frontends
+            try:
+                result = self._fe.send(
+                    endpoint="Frontend/GetStatus", opts={"timeout": self._timeout}
+                )
 
-            if list(result.keys())[0] in ["Abort", "Warning"]:
-                # Remove volume controls while frontend is unavailable
-                self._volume["control"] = False
-
-                # If ping succeeds but API fails, MythFrontend state is unknown
-                if self._ping_host():
+                if list(result.keys())[0] in ["Abort", "Warning"]:
+                    # If frontend is connected but API fails, MythFrontend state is unknown
+                    self.available = False
                     self._state = STATE_UNKNOWN
-                # If ping fails also, MythFrontend is off/unreachable
+                    return False
+
+                # Set the unique_id if not set
+                if not self._unique_id:
+                    self.unique_id = result["FrontendStatus"]["Name"]
+
+                # Make frontend status values more user-friendly
+                self._frontend = result["FrontendStatus"]["State"]
+
+                # Determine state of frontend
+                if self._frontend["state"] == "idle":
+                    self._state = STATE_IDLE
+                elif self._frontend["state"].startswith("Watching"):
+                    if self._frontend["playspeed"] == "0":
+                        self._state = STATE_PAUSED
+                    else:
+                        self._state = STATE_PLAYING
                 else:
-                    self._state = STATE_OFF
+                    self._state = STATE_ON
+
+                # only get artwork from backend if the playing media has changed
+                if self._state not in [STATE_PLAYING, STATE_PAUSED]:
+                    self._media_image_url = None
+                elif self._show_artwork and self._has_playing_media_changed():
+                    self._media_image_url = self._get_artwork()
+
+            except RuntimeError as error:
+                # It is possible this frontend went offline since the last GetFrontends poll
+                self._mythtv._get_frontends()
+
+                # Log error if frontend is not off
+                if self._state != STATE_OFF:
+                    _LOGGER.warning("Error with '%s' - %s", self._name, error)
+
                 return False
-
-            # Make frontend status values more user-friendly
-            self._frontend = result["FrontendStatus"]["State"]
-
-            # Determine state of frontend
-            if self._frontend["state"] == "idle":
-                self._state = STATE_IDLE
-            elif self._frontend["state"].startswith("Watching"):
-                if self._frontend["playspeed"] == "0":
-                    self._state = STATE_PAUSED
-                else:
-                    self._state = STATE_PLAYING
-            else:
-                self._state = STATE_ON
-
-            # Set volume control flag and level if the volume tag is present
-            if "volume" in self._frontend:
-                self._volume["control"] = True
-                self._volume["level"] = int(self._frontend["volume"])
-            # Set mute status if mute tag exists
-            if "mute" in self._frontend:
-                self._volume["muted"] = self._frontend["mute"] != "0"
-
-            # only get artwork from backend if the playing media has changed
-            if self._state not in [STATE_PLAYING, STATE_PAUSED]:
-                self._media_image_url = None
-            elif self._show_artwork and self._has_playing_media_changed():
-                self._media_image_url = self._get_artwork()
-
-        except RuntimeError as error:
-            # Log only if we don't already know the system is off/unreachable
-            if self._state != STATE_OFF and self._state != STATE_UNKNOWN:
-                _LOGGER.warning("Error with '%s' - %s", self._name, error)
-
-            # Use ping to set status
-            if self._ping_host():
-                self._state = STATE_UNKNOWN
-            # If ping fails also, MythFrontend is off/unreachable
-            else:
-                self._state = STATE_OFF
-            return False
 
         return True
 
@@ -245,27 +242,6 @@ class MythTVFrontendEntity(MediaPlayerEntity):
             channel_id = self._frontend.get("chanid")
             return self._mythtv.recording_artwork(start_time, channel_id)
 
-    # Reference: device_tracker/ping.py
-    def _ping_host(self):
-        """Ping the host to see if API status has some errors."""
-        if sys.platform == "win32":
-            ping_cmd = ["ping", "-n 1", "-w 1000", self._host_frontend]
-        else:
-            ping_cmd = ["ping", "-nq", "-c1", "-W1", self._host_frontend]
-        pinger = subprocess.Popen(
-            ping_cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL
-        )
-        try:
-            pinger.communicate()
-            return pinger.returncode == 0
-        except subprocess.CalledProcessError:
-            _LOGGER.warning(
-                "MythFrontend ping error for '%s' at '%s'",
-                self._name,
-                self._host_frontend,
-            )
-            return False
-
     def api_send_action(self, action, value=None):
         """Send a command to the Frontend."""
         try:
@@ -274,7 +250,7 @@ class MythTVFrontendEntity(MediaPlayerEntity):
                 postdata={"Action": action, "Value": value},
                 opts={"wrmi": True, "timeout": self._timeout},
             )
-            self.api_update()
+            self.update()
         except OSError:
             self._state = STATE_OFF
             return False
@@ -283,7 +259,15 @@ class MythTVFrontendEntity(MediaPlayerEntity):
 
     @property
     def unique_id(self):
-        return f"mythtv_{self._name}"
+        return self._unique_id
+
+    @unique_id.setter
+    def unique_id(self, unique_id):
+        """Set the unique_id. Shoud only be called once."""
+        if self._unique_id:
+            raise RuntimeError("unique_id already set")
+        self._unique_id = unique_id
+        self._mythtv._frontends[unique_id] = self
 
     @property
     def name(self):
@@ -294,6 +278,35 @@ class MythTVFrontendEntity(MediaPlayerEntity):
     def state(self):
         """Return the state of the entity."""
         return self._state
+
+    @property
+    def connected(self):
+        """Return True if entity connected to backend."""
+        return self._connected
+
+    @connected.setter
+    def connected(self, connected):
+        """Set connected attributed and make related changes to entity."""
+        self._connected = connected
+
+        if connected:
+            # Set volume control flag and level if the volume tag is present
+            if "volume" in self._frontend:
+                self._volume["control"] = True
+                self._volume["level"] = int(self._frontend["volume"])
+
+            # Set mute status if mute tag exists
+            if "mute" in self._frontend:
+                self._volume["muted"] = self._frontend["mute"] != "0"
+
+            # Update state of newly connected frontend
+            self.update()
+        else:
+            # Remove volume controls while frontend is unavailable
+            self._volume["control"] = False
+
+            # Disconnected frontends are 'off'
+            self._state = STATE_OFF
 
     @property
     def volume_level(self):

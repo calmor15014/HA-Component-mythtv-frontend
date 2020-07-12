@@ -7,7 +7,7 @@ https://home-assistant.io/components/notify.mythfrontend (but not yet)
 import asyncio
 import logging
 
-from mythtv_services_api import send as api
+from mythtvservicesapi import send as api
 import voluptuous as vol
 
 from homeassistant.components.notify import (
