@@ -181,18 +181,6 @@ class MythTVFrontendEntity(MediaPlayerEntity):
                 endpoint="Frontend/GetStatus", opts={"timeout": self._timeout}
             )
 
-            if list(result.keys())[0] in ["Abort", "Warning"]:
-                # Remove volume controls while frontend is unavailable
-                self._volume["control"] = False
-
-                # If ping succeeds but API fails, MythFrontend state is unknown
-                if self._ping_host():
-                    self._state = STATE_UNKNOWN
-                # If ping fails also, MythFrontend is off/unreachable
-                else:
-                    self._state = STATE_OFF
-                return False
-
             # Make frontend status values more user-friendly
             self._frontend = result["FrontendStatus"]["State"]
 
@@ -239,11 +227,11 @@ class MythTVFrontendEntity(MediaPlayerEntity):
     def _get_artwork(self):
         # Get artwork from backend using video file or starttime and chanid
         if self._frontend.get("state") == "WatchingVideo":
-            return self._mythtv.video_artwork(self._frontend.get("pathname"))
+            return self._mythtv.backend.get_video_artwork(self._frontend.get("pathname"))
         else:
             start_time = self._frontend.get("starttime").strip("Z")
             channel_id = self._frontend.get("chanid")
-            return self._mythtv.recording_artwork(start_time, channel_id)
+            return self._mythtv.backend.get_recording_artwork(start_time, channel_id)
 
     # Reference: device_tracker/ping.py
     def _ping_host(self):
