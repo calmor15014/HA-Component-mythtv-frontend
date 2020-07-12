@@ -86,28 +86,31 @@ SUPPORT_MYTHTV_FRONTEND = (
 # Set supported media_player functions when volume_control is enabled
 SUPPORT_VOLUME_CONTROL = SUPPORT_VOLUME_STEP | SUPPORT_VOLUME_MUTE | SUPPORT_VOLUME_SET
 
+# Set up frontend schema, shared by platform and discovery
+FRONTEND_SCHEMA = {
+    vol.Required(CONF_HOST): cv.string,
+    vol.Optional(CONF_PORT, default=DEFAULT_PORT_FRONTEND): cv.port,
+    vol.Optional(CONF_NAME, default=DEFAULT_NAME): cv.string,
+    vol.Optional(CONF_MAC): cv.string,
+    vol.Optional("show_artwork", default=DEFAULT_ARTWORK_CHOICE): cv.boolean,
+    vol.Optional(
+        CONF_TURN_OFF_SYSEVENT, default=DEFAULT_TURN_OFF_SYSEVENT
+    ): cv.string,
+    vol.Optional(CONF_TIMEOUT, default=DEFAULT_TIMEOUT): vol.Coerce(float),
+}
+
 # Set up YAML schema
-PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
-    {
-        vol.Required(CONF_HOST): cv.string,
-        vol.Optional(CONF_PORT, default=DEFAULT_PORT_FRONTEND): cv.port,
-        vol.Optional(CONF_NAME, default=DEFAULT_NAME): cv.string,
-        vol.Optional(CONF_MAC): cv.string,
-        vol.Optional("show_artwork", default=DEFAULT_ARTWORK_CHOICE): cv.boolean,
-        vol.Optional(
-            CONF_TURN_OFF_SYSEVENT, default=DEFAULT_TURN_OFF_SYSEVENT
-        ): cv.string,
-        vol.Optional(CONF_TIMEOUT, default=DEFAULT_TIMEOUT): vol.Coerce(float),
-    }
-)
+PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(FRONTEND_SCHEMA)
+
+# Set up discovery schema
+DISCOVERY_SCHEMA = vol.Schema(FRONTEND_SCHEMA)
 
 
-# pylint: disable=unused-argument
 def setup_platform(hass, conf, add_entities, discovery_info=None):
-    """Setup the MythTV Frontend platform."""
+    """Set up the MythTV Frontend platform."""
     if discovery_info:
         _LOGGER.debug("Reached setup_platform with discovery_info: %s", discovery_info)
-        config = PLATFORM_SCHEMA(discovery_info)
+        config = DISCOVERY_SCHEMA(discovery_info)
     else:
         config = conf
 
@@ -177,8 +180,8 @@ class MythTVFrontendEntity(MediaPlayerEntity):
 
     def update(self):
         """Use the API to get the latest status."""
-        _LOGGER.debug("MythTVFrontendEntity.api_update()")
-        if self._connected:  # only update connected players
+        _LOGGER.debug("MythTVFrontendEntity.api_update() for frontend %s", self.unique_id)
+        if self._connected:  # only update connected frontends
             try:
                 result = self._fe.send(
                     endpoint="Frontend/GetStatus", opts={"timeout": self._timeout}

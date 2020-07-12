@@ -75,6 +75,7 @@ class MythTVBackend:
     """Representation of the MythTV backend."""
 
     def __init__(self, host, port, hass, config):
+        """Initialize a MythTV backend."""
         self._host = host
         self._port = port
 
@@ -85,6 +86,8 @@ class MythTVBackend:
         # create a dictionary of frontends.
         # Myth/GetFrontend has no uuid, so we use "IP" as key
         self._frontends = {}
+
+        self._cancel_discovery = None
 
         self._be = api.Send(host=host, port=port)
 
@@ -114,13 +117,22 @@ class MythTVBackend:
             frontend_dict[frontend["Name"]] = frontend
         return frontend_dict
 
+# pylint: disable=unused-argument
     def _discovery(self, now=None):
-        """Discover frontends. Creates new frontends where needed, otherwise updates
-        their `_connected` attribute."""
+        """
+        Discover frontends.
+
+        Creates new frontends where needed, otherwise updates their `_connected` attribute.
+        """
+
         frontends = self._get_frontends()
         _LOGGER.debug("Got frontends: %s", frontends)
 
-        online_frontends = []
+        for key, val in self._frontends.items():
+            if key in frontends:
+                val.connected = True
+            else:
+                val.connected = False
 
         for key, val in frontends.items():
             if key not in self._frontends:
@@ -130,15 +142,7 @@ class MythTVBackend:
                     CONF_PORT: val["Port"],
                     CONF_NAME: val["Name"],
                 }
-                load_platform(self.hass, DOMAIN, MP_DOMAIN, discovery_info, self.config)
-
-            online_frontends.append(key)
-
-        for key, val in self._frontends.items():
-            if key in online_frontends:
-                val.connected = True
-            else:
-                val.connected = False
+                load_platform(self.hass, MP_DOMAIN, DOMAIN, discovery_info, self.config)
 
         call_later(self.hass, DISCOVERY_INTERVAL, self._discovery)
 
