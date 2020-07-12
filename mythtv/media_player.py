@@ -41,7 +41,7 @@ from homeassistant.const import (
 from homeassistant.helpers import config_validation as cv
 from homeassistant.util import dt as dt_util
 
-from .const import DOMAIN
+from .const import DOMAIN, MYTHTV_ID
 
 # Prerequisite (to be converted to standard PyPI library when available)
 # https://github.com/billmeek/MythTVServicesAPI
@@ -92,6 +92,7 @@ FRONTEND_SCHEMA = {
     vol.Optional(CONF_PORT, default=DEFAULT_PORT_FRONTEND): cv.port,
     vol.Optional(CONF_NAME, default=DEFAULT_NAME): cv.string,
     vol.Optional(CONF_MAC): cv.string,
+    vol.Optional(MYTHTV_ID): cv.string,
     vol.Optional("show_artwork", default=DEFAULT_ARTWORK_CHOICE): cv.boolean,
     vol.Optional(
         CONF_TURN_OFF_SYSEVENT, default=DEFAULT_TURN_OFF_SYSEVENT
@@ -125,6 +126,7 @@ def setup_platform(hass, conf, add_entities, discovery_info=None):
         turn_off = config.get(CONF_TURN_OFF_SYSEVENT)
     else:
         turn_off = "none"
+    mythtv_id = config.get(MYTHTV_ID)
 
     frontend = MythTVFrontendEntity(
         host_frontend,
@@ -135,6 +137,7 @@ def setup_platform(hass, conf, add_entities, discovery_info=None):
         show_artwork,
         turn_off,
         timeout,
+        mythtv_id,
     )
     add_entities([frontend], True)  # update entity immediately to set unique_id
 
@@ -156,6 +159,7 @@ class MythTVFrontendEntity(MediaPlayerEntity):
         show_artwork,
         turn_off,
         timeout,
+        mythtv_id,
     ):
         """Initialize the MythTV API."""
 
@@ -176,7 +180,7 @@ class MythTVFrontendEntity(MediaPlayerEntity):
         self._turn_off = turn_off
         self._timeout = timeout
         self._connected = True
-        self._unique_id = None
+        self._unique_id = mythtv_id
 
     def update(self):
         """Use the API to get the latest status."""

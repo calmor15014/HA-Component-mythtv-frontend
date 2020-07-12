@@ -22,7 +22,7 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.discovery import load_platform
 from homeassistant.helpers.event import call_later
 
-from .const import DOMAIN
+from .const import DOMAIN, MYTHTV_ID
 
 # Set default port for backend configuration
 DEFAULT_PORT = 6544
@@ -141,6 +141,7 @@ class MythTVBackend:
                     CONF_HOST: val["IP"],
                     CONF_PORT: val["Port"],
                     CONF_NAME: val["Name"],
+                    MYTHTV_ID: val["Name"],
                 }
                 load_platform(self.hass, MP_DOMAIN, DOMAIN, discovery_info, self.config)
 
