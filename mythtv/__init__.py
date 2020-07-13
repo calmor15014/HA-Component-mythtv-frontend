@@ -127,13 +127,6 @@ class MythTVBackend:
         art = self.__call_API(endpoint)
         return self.__process_art_response("Program", art)
 
-    # def get_frontends(self):
-    #     result = self.__call_API("Myth/GetFrontends")
-    #     if "Frontends" in result["FrontendList"]:
-    #         return result["FrontendList"]["Frontends"]
-    #     else:
-    #         return None
-
     def __get_tuners(self):
         result = self.__call_API("Dvr/GetEncoderList")
         if "Encoders" in result["EncoderList"]:
@@ -141,16 +134,6 @@ class MythTVBackend:
         else:
             return None
 
-    # def get_online_status(self, frontend):
-    #     frontends = self.backend.get_frontends()
-    #     if frontends is None:
-    #         return False
-    #     else:
-    #         for fe in frontends:
-    #             if frontend == fe["Name"] or frontend == fe["IP"]:
-    #                 return fe["OnLine"] == "1"
-    #         return False
-        
     def get_tuners(self):
         tuners = self.__get_tuners()
         response = []
@@ -173,6 +156,7 @@ class MythTVBackend:
                     if input["DisplayName"] == tuner_name:
                         return connected
         return False
+
     def _get_frontends(self):
         """Get frontends with "Name" as key."""
         response = self.__call_API("Myth/GetFrontends?OnLine=1")
