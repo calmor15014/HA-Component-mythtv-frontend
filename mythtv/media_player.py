@@ -140,6 +140,7 @@ def setup_platform(hass, conf, add_entities, discovery_info=None):
         mythtv_id,
     )
     add_entities([frontend], True)  # update entity immediately to set unique_id
+    mythtv.add_frontend(frontend)
 
     _LOGGER.info(
         "MythTV Frontend %s:%d added as '%s'", host_frontend, port_frontend, name,
@@ -222,8 +223,9 @@ class MythTVFrontendEntity(MediaPlayerEntity):
                     self._media_image_url = self._get_artwork()
 
             except RuntimeError as error:
-                # It is possible this frontend went offline since the last GetFrontends poll
-                self._mythtv._get_frontends()
+                # Mark frontends that error as disconnected. They will be rediscovered by
+                # Myth/GetFrontends if they come online.
+                self.connected = False
 
                 # Log error if frontend is not off
                 if self._state != STATE_OFF:
@@ -236,11 +238,11 @@ class MythTVFrontendEntity(MediaPlayerEntity):
     def _get_artwork(self):
         # Get artwork from backend using video file or starttime and chanid
         if self._frontend.get("state") == "WatchingVideo":
-            return self._mythtv.backend.get_video_artwork(self._frontend.get("pathname"))
+            return self._mythtv.get_video_artwork(self._frontend.get("pathname"))
         else:
             start_time = self._frontend.get("starttime").strip("Z")
             channel_id = self._frontend.get("chanid")
-            return self._mythtv.backend.get_recording_artwork(start_time, channel_id)
+            return self._mythtv.get_recording_artwork(start_time, channel_id)
 
     def api_send_action(self, action, value=None):
         """Send a command to the Frontend."""

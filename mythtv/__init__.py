@@ -84,7 +84,7 @@ class MythTVBackend:
         self.config = config
 
         # create a dictionary of frontends.
-        # Myth/GetFrontend has no uuid, so we use "IP" as key
+        # Myth/GetFrontend has no uuid, so we use "Name" as key
         self._frontends = {}
 
         self._cancel_discovery = None
@@ -127,13 +127,6 @@ class MythTVBackend:
         art = self.__call_API(endpoint)
         return self.__process_art_response("Program", art)
 
-    # def get_frontends(self):
-    #     result = self.__call_API("Myth/GetFrontends")
-    #     if "Frontends" in result["FrontendList"]:
-    #         return result["FrontendList"]["Frontends"]
-    #     else:
-    #         return None
-
     def __get_tuners(self):
         result = self.__call_API("Dvr/GetEncoderList")
         if "Encoders" in result["EncoderList"]:
@@ -141,16 +134,6 @@ class MythTVBackend:
         else:
             return None
 
-    # def get_online_status(self, frontend):
-    #     frontends = self.backend.get_frontends()
-    #     if frontends is None:
-    #         return False
-    #     else:
-    #         for fe in frontends:
-    #             if frontend == fe["Name"] or frontend == fe["IP"]:
-    #                 return fe["OnLine"] == "1"
-    #         return False
-        
     def get_tuners(self):
         tuners = self.__get_tuners()
         response = []
@@ -173,6 +156,7 @@ class MythTVBackend:
                     if input["DisplayName"] == tuner_name:
                         return connected
         return False
+
     def _get_frontends(self):
         """Get frontends with "Name" as key."""
         response = self.__call_API("Myth/GetFrontends?OnLine=1")
@@ -180,6 +164,13 @@ class MythTVBackend:
         for frontend in response["FrontendList"]["Frontends"]:
             frontend_dict[frontend["Name"]] = frontend
         return frontend_dict
+
+    def add_frontend(self, frontend):
+        """Add a frontend to dictionary of known frontends."""
+        if frontend.unique_id:
+            self._frontends.update({frontend.unique_id: frontend})
+        else:
+            _LOGGER.debug("Could not track frontend %s, no unique_id")
 
 # pylint: disable=unused-argument
     def _discovery(self, now=None):
