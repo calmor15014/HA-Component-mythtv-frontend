@@ -238,11 +238,11 @@ class MythTVFrontendEntity(MediaPlayerEntity):
     def _get_artwork(self):
         # Get artwork from backend using video file or starttime and chanid
         if self._frontend.get("state") == "WatchingVideo":
-            return self._mythtv.backend.get_video_artwork(self._frontend.get("pathname"))
+            return self._mythtv.get_video_artwork(self._frontend.get("pathname"))
         else:
             start_time = self._frontend.get("starttime").strip("Z")
             channel_id = self._frontend.get("chanid")
-            return self._mythtv.backend.get_recording_artwork(start_time, channel_id)
+            return self._mythtv.get_recording_artwork(start_time, channel_id)
 
     def api_send_action(self, action, value=None):
         """Send a command to the Frontend."""
