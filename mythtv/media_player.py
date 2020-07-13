@@ -140,6 +140,7 @@ def setup_platform(hass, conf, add_entities, discovery_info=None):
         mythtv_id,
     )
     add_entities([frontend], True)  # update entity immediately to set unique_id
+    mythtv.add_frontend(frontend)
 
     _LOGGER.info(
         "MythTV Frontend %s:%d added as '%s'", host_frontend, port_frontend, name,
@@ -222,8 +223,9 @@ class MythTVFrontendEntity(MediaPlayerEntity):
                     self._media_image_url = self._get_artwork()
 
             except RuntimeError as error:
-                # It is possible this frontend went offline since the last GetFrontends poll
-                self._mythtv._get_frontends()
+                # Mark frontends that error as disconnected. They will be rediscovered by
+                # Myth/GetFrontends if they come online.
+                self.connected = False
 
                 # Log error if frontend is not off
                 if self._state != STATE_OFF:

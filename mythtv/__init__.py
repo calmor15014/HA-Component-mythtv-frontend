@@ -84,7 +84,7 @@ class MythTVBackend:
         self.config = config
 
         # create a dictionary of frontends.
-        # Myth/GetFrontend has no uuid, so we use "IP" as key
+        # Myth/GetFrontend has no uuid, so we use "Name" as key
         self._frontends = {}
 
         self._cancel_discovery = None
@@ -180,6 +180,13 @@ class MythTVBackend:
         for frontend in response["FrontendList"]["Frontends"]:
             frontend_dict[frontend["Name"]] = frontend
         return frontend_dict
+
+    def add_frontend(self, frontend):
+        """Add a frontend to dictionary of known frontends."""
+        if frontend.unique_id:
+            self._frontends.update({frontend.unique_id: frontend})
+        else:
+            _LOGGER.debug("Could not track frontend %s, no unique_id")
 
 # pylint: disable=unused-argument
     def _discovery(self, now=None):
